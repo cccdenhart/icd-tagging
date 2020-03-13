@@ -1,8 +1,10 @@
 from typing import List, Set
-from nltk.corpus import stopwords
 import functools as ft
 from tqdm import tqdm
 import pandas as pd
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
 
 
 def process_note(text: str) -> List[str]:
@@ -42,5 +44,5 @@ def all_redund(all_records: pd.DataFrame) -> List[float]:
     for record in tqdm(records):
         rec_df = all_records.loc[all_records["subject_id"] == record, :]
         for i in range(rec_df.shape[0]):
-            scores.append(score_redund(rec_df.process.tolist(), i))
+            scores.append(score_redund(rec_df["processed"].tolist(), i))
     return scores
