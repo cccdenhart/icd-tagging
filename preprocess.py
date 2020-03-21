@@ -1,42 +1,49 @@
 """Convert raw mimic data to preprocessed features/labels."""
-import os
-from pyathena.util import as_pandas
-import pyathena
-import pandas as pd
 import functools as ft
-from typing import Optional, List, Set, Callable
-from sklearn.feature_extraction.text import TfidfVectorizer
-import nltk
+import os
+import re
+
+import pandas as pd
+import pyathena
+from constants import ICD_COLNAME
+from constants import LABEL_FN
+from constants import NOTE_COLNAME
+from constants import PROJ_DIR
+from constants import TFIDF_FN
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
-import re
-from constants import get_conn, PROJ_DIR
+from pyathena.util import as_pandas
+from sklearn.feature_extraction.text import TfidfVectorizer
+from typing import Callable
+from typing import List
+from typing import Optional
+from typing import Set
+from utils import get_conn
 
-# define constants
-ICD_COLNAME: str = "icd9_codes"
-NOTE_COLNAME: str = "note"
-
-LABEL_FN = "labels.csv"
-TFIDF_FN = "tfidf.csv"
-
+# define a query for retrieving notes labeled with icd codes
 BASE_QUERY: str = f"""
-SELECT ARRAY_AGG(procedures_icd.icd9_code) as {ICD_COLNAME},
-ARRAY_AGG(noteevents.text)[1] as {NOTE_COLNAME}
-FROM noteevents
-INNER JOIN procedures_icd
-ON noteevents.hadm_id = procedures_icd.hadm_id
-GROUP BY noteevents.row_id
+SELECT
+  ARRAY_AGG(procedures_icd.icd9_code) as {ICD_COLNAME},
+  ARRAY_AGG(noteevents.text)[1] as {NOTE_COLNAME}
+FROM
+  noteevents
+INNER JOIN
+  procedures_icd
+ON
+  noteevents.hadm_id = procedures_icd.hadm_id
+GROUP BY
+  noteevents.row_id
 """
 
 
-def read_icd_notes(conn_fn: Callable[, pyathena.Connection],
+def read_icd_notes(conn_func: Callable[[], pyathena.Connection],
                    query: str, limit: Optional[int] = None) -> pd.DataFrame:
     """Read in clinical notes joined on icd codes."""
     # define query string
     full_query: str = query + (f"LIMIT {limit};" if limit else ";")
 
     # retrieve notes from AWS Athena
-    with conn_fn() as conn:
+    with conn_func() as conn:
         cursor = conn.cursor()
         df: pd.DataFrame = as_pandas(cursor.execute(full_query))
     return df
@@ -57,7 +64,7 @@ def process_all_notes(docs: List[str]) -> List[List[str]]:
     """Preprocess notes for embedding."""
     def process_note(doc: str) -> List[str]:
         """Process a single note."""
-        # remove anonymized (ex. "[** ... **]") references
+        # remove anonymized references (ex. "[** ... **]")
         redoc: str = re.sub("\B\[\*\*[^\*\]]*\*\*\]\B", "", doc)
 
         # replace ICD codes?
@@ -96,13 +103,15 @@ def main() -> None:
 
     # preproces notes
     print("Preprocessing notes .....")
-    pp_notes = preprocess_all_notes(df[NOTE_COLNAME].tolist())
+    pp_notes = process_all_notes(df[NOTE_COLNAME].tolist())
 
     # retrieve tfidf vectors
+    print("Embedding with tfidf .....")
     joined_pp = [" ".join(pp_note) for pp_note in pp_notes]
     tfidfs = to_tfidf(joined_pp)
 
     # write to disk
+    print("Writing to disk .....")
     labels_fp = os.path.join(PROJ_DIR, "data", LABEL_FN)
     pd.DataFrame(one_hots).to_csv(labels_fp)
 

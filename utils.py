@@ -1,10 +1,21 @@
-from typing import List, Set
 import functools as ft
-from tqdm import tqdm
+import os
+
 import pandas as pd
-import nltk
+import pyathena
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
+from tqdm import tqdm
+from typing import List
+from typing import Set
+
+
+def get_conn():
+    """Allow lazy calling of pyathena connection."""
+    return pyathena.connect(aws_access_key_id=os.getenv("ACCESS_KEY"),
+                            aws_secret_access_key=os.getenv("SECRET_KEY"),
+                            s3_staging_dir=os.getenv("S3_DIR"),
+                            region_name=os.getenv("REGION_NAME"))
 
 
 def process_note(text: str) -> List[str]:
@@ -19,24 +30,25 @@ def process_note(text: str) -> List[str]:
 def score_redund(record: List[List[str]], note_idx: int) -> float:
     """
     Calculate pct text overlap between the given note and its prev record.
-    
+
     :param record: tokenized patient record
     :param note_idx: the index of the note to score redundancy for
-    
+
     :returns score: the redundancy score
     """
     note: List[str] = record[note_idx]
-    comb_prev: List[str] = ft.reduce(lambda ac, n: ac + n, record[:note_idx], [])
+    comb_prev: List[str] = ft.reduce(lambda acc, n: acc + n,
+                                     record[:note_idx], [])
     dups: int = sum([1 for w in note if w in comb_prev])
     total: int = len(note)
     score: float = 0 if total == 0 else dups / total
     return score
-    
-    
+
+
 def all_redund(all_records: pd.DataFrame) -> List[float]:
     """
     Calculate a redundancy score for every note.
-    
+
     NOTE: assumes the given df is sorted ASCENDING by 'charttime'
     """
     records: Set[int] = set(all_records["subject_id"])
