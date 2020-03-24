@@ -148,6 +148,14 @@ def main() -> Dict:
         icd_codes = get_icd(get_conn)
         pd.Series(icd_codes).to_csv(icd_fp, header=False)
 
+    # get the root for each icd code
+    print("Getting roots .....")
+    roots_fp = os.path.join(data_dir, "roots.csv")
+    if os.path.exists(roots_fp):
+        roots = pd.read_csv(roots_fp)
+    else:
+        roots = get_roots(icd_codes)
+
     # get icd summary table
     print("Generating icd summary table .....")
     icd_table_fp = os.path.join(data_dir, "icd_summary.csv")
