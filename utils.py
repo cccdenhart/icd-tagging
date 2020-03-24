@@ -8,10 +8,17 @@ from nltk.tokenize import word_tokenize
 from tqdm import tqdm
 from typing import List
 from typing import Set
+from constants import PROJ_DIR, ENV_NAME
+from dotenv import load_dotenv
+from icd9.icd9 import ICD9
+from icd9.icd9 import Node as ICDNode
+import networkx as nx
 
 
 def get_conn():
     """Allow lazy calling of pyathena connection."""
+    # load the environment
+    load_dotenv(dotenv_path=os.path.join(PROJ_DIR, ENV_NAME))
     return pyathena.connect(aws_access_key_id=os.getenv("ACCESS_KEY"),
                             aws_secret_access_key=os.getenv("SECRET_KEY"),
                             s3_staging_dir=os.getenv("S3_DIR"),
@@ -58,3 +65,16 @@ def all_redund(all_records: pd.DataFrame) -> List[float]:
         for i in range(rec_df.shape[0]):
             scores.append(score_redund(rec_df["processed"].tolist(), i))
     return scores
+
+
+def tree_to_nx(root: ICD9) -> nx.Graph:
+    """Convert a ICD9 tree to a networkx graph."""
+    G: nx.Graph = nx.Graph()
+    stack: List[ICDNode] = root.children.copy()
+    while len(stack) > 0:
+        node: ICDNode = stack.pop()
+        G.add_node(node.code)
+        for child in node.children:
+            stack.append(child)
+            G.add_edge(node.code, child.code)
+    return G

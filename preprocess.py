@@ -4,7 +4,6 @@ import os
 import re
 
 import pandas as pd
-import pyathena
 from constants import ICD_COLNAME
 from constants import LABEL_FN
 from constants import NOTE_COLNAME
@@ -18,10 +17,14 @@ from typing import Callable
 from typing import List
 from typing import Optional
 from typing import Set
+from typing import Iterable
 from utils import get_conn
+from pyathena.connection import Connection as AthenaConn
+from icd9.icd9 import Node as ICDNode
+from icd9.icd9 import ICD9
 
 # define a query for retrieving notes labeled with icd codes
-BASE_QUERY: str = f"""
+NOTE_ICD_QUERY: str = f"""
 SELECT
   ARRAY_AGG(procedures_icd.icd9_code) as {ICD_COLNAME},
   ARRAY_AGG(noteevents.text)[1] as {NOTE_COLNAME}
@@ -36,7 +39,7 @@ GROUP BY
 """
 
 
-def read_icd_notes(conn_func: Callable[[], pyathena.Connection],
+def read_icd_notes(conn_func: Callable[[], AthenaConn],
                    query: str, limit: Optional[int] = None) -> pd.DataFrame:
     """Read in clinical notes joined on icd codes."""
     # define query string
@@ -47,6 +50,34 @@ def read_icd_notes(conn_func: Callable[[], pyathena.Connection],
         cursor = conn.cursor()
         df: pd.DataFrame = as_pandas(cursor.execute(full_query))
     return df
+
+
+def mimic_to_norm_icd(codes: Iterable[str]) -> List[str]:
+    """Convert mimic icd codes to standard format by inserting '.'."""
+    sep_idx = 3
+    return [c[:sep_idx] + "." + c[sep_idx:] if len(c) > sep_idx else c
+            for c in codes]
+
+
+def icd_nodes(codes: Iterable[str], tree: ICD9) -> List[ICDNode]:
+    """Store each ICD code as a node object."""
+    return [tree.find(c) for c in codes]
+
+
+def get_roots(codes: Iterable[ICDNode]) -> List[ICDNode]:
+    """Extract the root of each ICD code."""
+    def icd_to_root(code: ICDNode) -> ICDNode:
+        """Get the root of the given code."""
+        if code:
+            if type(code.parent) == ICD9:
+                return code
+            else:
+                return icd_to_root(code.parent)
+        else:
+            return None
+    roots = [icd_to_root(c) for c in codes]
+    breakpoint()
+    return roots
 
 
 def one_hot_labels(labels: List[List[str]]) -> List[List[int]]:
@@ -95,7 +126,7 @@ def main() -> None:
     """Cache preprocessed data files for modeling."""
     # read icd codes and notes
     print("Reading in data .....")
-    df = read_icd_notes(get_conn, BASE_QUERY, limit=1000)
+    df = read_icd_notes(get_conn, NOTE_ICD_QUERY, limit=1000)
 
     # retrieve labels
     print("Retrieving one-hot labels .....")
@@ -117,3 +148,7 @@ def main() -> None:
 
     tfidf_fp = os.path.join(PROJ_DIR, "data", TFIDF_FN)
     pd.DataFrame(tfidfs).to_csv(tfidf_fp)
+
+
+if __name__ == "__main__":
+    main()
