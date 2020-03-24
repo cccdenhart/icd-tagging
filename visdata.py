@@ -9,8 +9,6 @@ from constants import PROJ_DIR, TREE
 from icd9.icd9 import ICD9
 from icd9.icd9 import Node as ICDNode
 from preprocess import get_roots
-from preprocess import icd_nodes
-from preprocess import mimic_to_norm_icd
 from pyathena.connection import Connection as AthenaConn
 from pyathena.util import as_pandas
 from typing import Callable
@@ -111,16 +109,10 @@ def count_children(node: ICDNode) -> int:
         return 1
 
 
-def icd_summary(codes: List[str], tree: ICD9) -> pd.DataFrame:
+def icd_summary(roots: List[ICD9]) -> pd.DataFrame:
     """Summarize top level icd codes."""
-    # convert codes to ICD9 objects
-    filt_codes = [str(c) for c in codes if c]
-    norm_codes = mimic_to_norm_icd(filt_codes)
-    nodes = icd_nodes(norm_codes, tree)
-    root_codes = get_roots(nodes)
-
     # count by root code
-    root_freqs = Counter(root_codes)
+    root_freqs = Counter(roots)
     roots = list(root_freqs.keys())
     counts = list(root_freqs.values())
 
@@ -147,6 +139,7 @@ def main() -> Dict:
     else:
         icd_codes = get_icd(get_conn)
         pd.Series(icd_codes).to_csv(icd_fp, header=False)
+    icd_codes = [c for c in icd_codes if type(c) == str]
 
     # get the root for each icd code
     print("Getting roots .....")
@@ -154,7 +147,9 @@ def main() -> Dict:
     if os.path.exists(roots_fp):
         roots = pd.read_csv(roots_fp)
     else:
-        roots = get_roots(icd_codes)
+        roots = get_roots(icd_codes, TREE)
+        roots_df = pd.DataFrame(data={"leaf": icd_codes, "root": roots})
+        roots_df.to_csv(roots_fp, index=False)
 
     # get icd summary table
     print("Generating icd summary table .....")
@@ -162,9 +157,8 @@ def main() -> Dict:
     if os.path.exists(icd_table_fp):
         icd_table = pd.read_csv(icd_table_fp)
     else:
-        icd_table = icd_summary(icd_codes, TREE)
-        icd_table.to_csv(icd_table_fp,
-                         header=True, index=False)
+        icd_table = icd_summary(roots)
+        icd_table.to_csv(icd_table_fp, header=True, index=False)
 
     # get full summary table
     print("Generating full summary table .....")

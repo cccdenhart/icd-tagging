@@ -52,31 +52,26 @@ def read_icd_notes(conn_func: Callable[[], AthenaConn],
     return df
 
 
-def mimic_to_norm_icd(codes: Iterable[str]) -> List[str]:
-    """Convert mimic icd codes to standard format by inserting '.'."""
-    sep_idx = 3
-    return [c[:sep_idx] + "." + c[sep_idx:] if len(c) > sep_idx else c
-            for c in codes]
-
-
-def icd_nodes(codes: Iterable[str], tree: ICD9) -> List[ICDNode]:
-    """Store each ICD code as a node object."""
-    return [tree.find(c) for c in codes]
-
-
-def get_roots(codes: Iterable[ICDNode]) -> List[ICDNode]:
+def get_roots(codes: Iterable[str], tree: ICD9) -> List[ICDNode]:
     """Extract the root of each ICD code."""
+    def code_to_node(code: str, n: int) -> ICDNode:
+        print(f"{n}/{len(codes)}:", code)
+        """Convert the mimic code to a ICD Node."""
+        idx = 3
+        norm_code = code[:idx] + "." + code[idx:] if len(code) > idx else code
+        node = tree.find(norm_code)
+        return node
+
     def icd_to_root(code: ICDNode) -> ICDNode:
         """Get the root of the given code."""
-        if code:
-            if type(code.parent) == ICD9:
-                return code
-            else:
-                return icd_to_root(code.parent)
-        else:
+        if not code:
             return None
-    roots = [icd_to_root(c) for c in codes]
-    breakpoint()
+        if type(code.parent) == ICD9:
+            return code
+        else:
+            return icd_to_root(code.parent)
+    roots = [icd_to_root(code_to_node(c, i)) for i, c in enumerate(codes)
+             if type(c) == str]
     return roots
 
 
