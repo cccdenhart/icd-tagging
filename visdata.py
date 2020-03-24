@@ -40,7 +40,7 @@ def summary_table(conn_func: Callable[[], AthenaConn]) -> pd.DataFrame:
           {group_field} as Category,
           count(distinct p.subject_id) as Patients,
           count(distinct a.hadm_id) as Admissions,
-          count(distinct d.icd9_code) as 'ICD9 Codes',
+          count(distinct d.icd9_code) as "ICD9 Codes",
           count(distinct a.deathtime) as Deaths
         FROM
           mimiciii.patients AS p
@@ -138,10 +138,11 @@ def main() -> Dict:
         icd_codes = pd.read_csv(icd_fp, squeeze=True).tolist()
     else:
         icd_codes = get_icd(get_conn)
-        pd.Series(icd_codes).to_csv(icd_fp, header=False)
+        pd.Series(icd_codes).to_csv(icd_fp, header=False, index=False)
     icd_codes = [c for c in icd_codes if type(c) == str]
 
     # get the root for each icd code
+    """
     print("Getting roots .....")
     roots_fp = os.path.join(data_dir, "roots.csv")
     if os.path.exists(roots_fp):
@@ -159,6 +160,7 @@ def main() -> Dict:
     else:
         icd_table = icd_summary(roots)
         icd_table.to_csv(icd_table_fp, header=True, index=False)
+    """
 
     # get full summary table
     print("Generating full summary table .....")
@@ -169,11 +171,6 @@ def main() -> Dict:
         full_summary = summary_table(get_conn)
         full_summary.to_csv(summary_fp,
                             header=True, index=True)
-
-    out_dict = {"icd_codes": icd_codes,
-                "icd_table": icd_table,
-                "full_summary": full_summary}
-    return out_dict
 
 
 if __name__ == "__main__":

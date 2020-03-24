@@ -70,8 +70,7 @@ def get_roots(codes: Iterable[str], tree: ICD9) -> List[ICDNode]:
             return code
         else:
             return icd_to_root(code.parent)
-    roots = [icd_to_root(code_to_node(c, i)) for i, c in enumerate(codes)
-             if type(c) == str]
+    roots = [icd_to_root(code_to_node(c, i)) for i, c in enumerate(codes)]
     return roots
 
 
