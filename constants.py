@@ -15,3 +15,6 @@ TFIDF_FN: str = "tfidf.csv"
 
 # load the icd9 tree
 TREE = ICD9(os.path.join(PROJ_DIR, "icd9", "codes.json"))
+
+# load tree caches
+ROOT_DESCS = {n.code: n.description for n in TREE.children}

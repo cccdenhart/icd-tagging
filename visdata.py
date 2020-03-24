@@ -16,6 +16,7 @@ from typing import Iterable
 from typing import List
 from typing import Dict
 from utils import get_conn
+from constants import ROOT_DESCS
 
 
 def get_icd(conn_func: Callable[[], AthenaConn]) -> List[str]:
@@ -104,23 +105,26 @@ def summary_table(conn_func: Callable[[], AthenaConn]) -> pd.DataFrame:
 def count_children(node: ICDNode) -> int:
     """Count the total number of descendents from this node."""
     if node.children:
-        ft.reduce(lambda acc, n: acc + count_children(n), node.children, 1)
+        return ft.reduce(lambda acc, n: acc + count_children(n), node.children, 1)
     else:
         return 1
 
 
-def icd_summary(roots: List[ICD9]) -> pd.DataFrame:
+def icd_summary(roots: List[str], tree: ICD9) -> pd.DataFrame:
     """Summarize top level icd codes."""
     # count by root code
     root_freqs = Counter(roots)
     roots = list(root_freqs.keys())
     counts = list(root_freqs.values())
 
+    # get child counts for each root node
+    child_counts = {r: count_children(tree.find(r))
+                    for r in list(ROOT_DESCS.keys())}
+
     # get summary table data
-    code_names = [c.code for c in roots]
-    descs = [c.description.strip() for c in roots]
-    n_children = [count_children(r) for r in roots]
-    data = {"Code": code_names, "Description": descs,
+    descs = [ROOT_DESCS[r] for r in roots]
+    n_children = [child_counts[r] for r in roots]
+    data = {"Code": roots, "Description": descs,
             "Mimic-iii Counts": counts, "Nodes in ICD Tree": n_children}
     df = pd.DataFrame(data)
     return df
@@ -135,7 +139,7 @@ def main() -> Dict:
     print("Getting all icd codes .....")
     icd_fp = os.path.join(data_dir, "icd.csv")
     if os.path.exists(icd_fp):
-        icd_codes = pd.read_csv(icd_fp, squeeze=True).tolist()
+        icd_codes = pd.read_csv(icd_fp, squeeze=True).iloc[:,1].tolist()
     else:
         icd_codes = get_icd(get_conn)
         pd.Series(icd_codes).to_csv(icd_fp, header=False, index=False)
@@ -146,19 +150,21 @@ def main() -> Dict:
     print("Getting roots .....")
     roots_fp = os.path.join(data_dir, "roots.csv")
     if os.path.exists(roots_fp):
-        roots = pd.read_csv(roots_fp)
+        roots_df = pd.read_csv(roots_fp)
     else:
-        roots = get_roots(icd_codes, TREE)
-        roots_df = pd.DataFrame(data={"leaf": icd_codes, "root": roots})
+        root_codes = [r.code for r in get_roots(icd_codes, TREE)]
+        roots_df = pd.DataFrame(data={"leaf": icd_codes, "root": root_codes})
         roots_df.to_csv(roots_fp, index=False)
 
     # get icd summary table
     print("Generating icd summary table .....")
+    roots_df = roots_df.dropna()
+    roots = roots_df["root"].apply(lambda x: x.split("\t")[-1]).tolist()
     icd_table_fp = os.path.join(data_dir, "icd_summary.csv")
     if os.path.exists(icd_table_fp):
         icd_table = pd.read_csv(icd_table_fp)
     else:
-        icd_table = icd_summary(roots)
+        icd_table = icd_summary(roots, TREE)
         icd_table.to_csv(icd_table_fp, header=True, index=False)
     """
 
