@@ -9,6 +9,7 @@ from constants import LABEL_FN
 from constants import NOTE_COLNAME
 from constants import PROJ_DIR
 from constants import TFIDF_FN
+from constants import TREE
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from pyathena.util import as_pandas
@@ -26,16 +27,16 @@ from icd9.icd9 import ICD9
 # define a query for retrieving notes labeled with icd codes
 NOTE_ICD_QUERY: str = f"""
 SELECT
-  ARRAY_AGG(procedures_icd.icd9_code) as {ICD_COLNAME},
-  ARRAY_AGG(noteevents.text)[1] as {NOTE_COLNAME}
+  ARRAY_AGG(icdtab.icd9_code) as {ICD_COLNAME},
+  ARRAY_AGG(notetab.text)[1] as {NOTE_COLNAME}
 FROM
-  noteevents
+  mimiciii.noteevents as notetab
 INNER JOIN
-  procedures_icd
+  mimiciii.diagnoses_icd as icdtab
 ON
-  noteevents.hadm_id = procedures_icd.hadm_id
+  notetab.hadm_id = icdtab.hadm_id
 GROUP BY
-  noteevents.row_id
+  notetab.row_id
 """
 
 
@@ -49,7 +50,7 @@ def read_icd_notes(conn_func: Callable[[], AthenaConn],
     with conn_func() as conn:
         cursor = conn.cursor()
         df: pd.DataFrame = as_pandas(cursor.execute(full_query))
-    return df
+    return df.dropna()
 
 
 def get_roots(codes: Iterable[str], tree: ICD9) -> List[ICDNode]:
@@ -120,28 +121,39 @@ def main() -> None:
     """Cache preprocessed data files for modeling."""
     # read icd codes and notes
     print("Reading in data .....")
-    df = read_icd_notes(get_conn, NOTE_ICD_QUERY, limit=1000)
+    query_fp = os.path.join(PROJ_DIR, "data", "icd_notes_query.csv")
+    if os.path.exists(query_fp):
+        df = pd.read_csv(query_fp)
+    else:
+        df = read_icd_notes(get_conn, NOTE_ICD_QUERY)
+        df.to_csv(query_fp, header=True, index=False)
 
-    # retrieve labels
-    print("Retrieving one-hot labels .....")
-    one_hots = one_hot_labels(df[ICD_COLNAME].tolist())
+    # read in roots icd codes
+    roots_fp = os.path.join(PROJ_DIR, "data", "roots_labels.csv")
+    if os.path.exists(roots_fp):
+        roots = pd.read_csv(roots_fp, squeeze=True).tolist()
+    else:
+        roots = get_roots(df[ICD_COLNAME].tolist(), TREE)
+        pd.Series(roots).to_csv(roots_fp, header=False, index=False)
 
     # preproces notes
     print("Preprocessing notes .....")
-    pp_notes = process_all_notes(df[NOTE_COLNAME].tolist())
+    notes_fp = os.path.join(PROJ_DIR, "data", "processed_notes.csv")
+    if os.path.exists(notes_fp):
+        pp_notes = pd.read_csv(notes_fp, header=None)
+    else:
+        pp_notes = process_all_notes(df[NOTE_COLNAME].tolist())
+        pd.DataFrame(pp_notes).to_csv(notes_fp, header=False, index=False)
 
     # retrieve tfidf vectors
     print("Embedding with tfidf .....")
-    joined_pp = [" ".join(pp_note) for pp_note in pp_notes]
-    tfidfs = to_tfidf(joined_pp)
-
-    # write to disk
-    print("Writing to disk .....")
-    labels_fp = os.path.join(PROJ_DIR, "data", LABEL_FN)
-    pd.DataFrame(one_hots).to_csv(labels_fp)
-
     tfidf_fp = os.path.join(PROJ_DIR, "data", TFIDF_FN)
-    pd.DataFrame(tfidfs).to_csv(tfidf_fp)
+    if os.path.exists(tfidf_fp):
+        tfidfs = pd.read_csv(tfidf_fp, header=None).values()
+    else:
+        joined_pp = [" ".join(pp_note) for pp_note in pp_notes]
+        tfidfs = to_tfidf(joined_pp)
+        pd.DataFrame(tfidfs).to_csv(tfidf_fp, header=False, index=False)
 
 
 if __name__ == "__main__":

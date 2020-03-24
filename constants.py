@@ -8,7 +8,7 @@ PROJ_DIR: str = os.path.dirname(os.path.abspath(__file__))
 ENV_NAME: str = ".env"
 
 # preprocessing constants
-ICD_COLNAME: str = "icd9_codes"
+ICD_COLNAME: str = "icd9_code"
 NOTE_COLNAME: str = "note"
 LABEL_FN: str = "labels.csv"
 TFIDF_FN: str = "tfidf.csv"

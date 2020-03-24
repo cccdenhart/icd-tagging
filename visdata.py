@@ -139,14 +139,13 @@ def main() -> Dict:
     print("Getting all icd codes .....")
     icd_fp = os.path.join(data_dir, "icd.csv")
     if os.path.exists(icd_fp):
-        icd_codes = pd.read_csv(icd_fp, squeeze=True).iloc[:,1].tolist()
+        icd_codes = pd.read_csv(icd_fp, squeeze=True).iloc[:, 1].tolist()
     else:
         icd_codes = get_icd(get_conn)
         pd.Series(icd_codes).to_csv(icd_fp, header=False, index=False)
     icd_codes = [c for c in icd_codes if type(c) == str]
 
     # get the root for each icd code
-    """
     print("Getting roots .....")
     roots_fp = os.path.join(data_dir, "roots.csv")
     if os.path.exists(roots_fp):
@@ -161,22 +160,14 @@ def main() -> Dict:
     roots_df = roots_df.dropna()
     roots = roots_df["root"].apply(lambda x: x.split("\t")[-1]).tolist()
     icd_table_fp = os.path.join(data_dir, "icd_summary.csv")
-    if os.path.exists(icd_table_fp):
-        icd_table = pd.read_csv(icd_table_fp)
-    else:
-        icd_table = icd_summary(roots, TREE)
-        icd_table.to_csv(icd_table_fp, header=True, index=False)
-    """
+    icd_table = icd_summary(roots, TREE)
+    icd_table.to_csv(icd_table_fp, header=True, index=False)
 
     # get full summary table
     print("Generating full summary table .....")
     summary_fp = os.path.join(data_dir, "full_summary.csv")
-    if os.path.exists(summary_fp):
-        full_summary = pd.read_csv(summary_fp, index_col="Category")
-    else:
-        full_summary = summary_table(get_conn)
-        full_summary.to_csv(summary_fp,
-                            header=True, index=True)
+    full_summary = summary_table(get_conn)
+    full_summary.to_csv(summary_fp, header=True, index=True)
 
 
 if __name__ == "__main__":
