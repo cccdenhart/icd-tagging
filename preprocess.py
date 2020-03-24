@@ -131,10 +131,10 @@ def main() -> None:
     # read in roots icd codes
     roots_fp = os.path.join(PROJ_DIR, "data", "roots_labels.csv")
     if os.path.exists(roots_fp):
-        roots = pd.read_csv(roots_fp, squeeze=True).tolist()
+        roots = pd.read_csv(roots_fp, header=None)
     else:
-        roots = get_roots(df[ICD_COLNAME].tolist(), TREE)
-        pd.Series(roots).to_csv(roots_fp, header=False, index=False)
+        roots = [get_roots(codes), TREE) for codes in df[ICD_COLNAME]]
+        pd.DataFrame(roots).to_csv(roots_fp, header=False, index=False)
 
     # preproces notes
     print("Preprocessing notes .....")
