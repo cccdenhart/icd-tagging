@@ -24,6 +24,7 @@ from utils import get_conn
 from pyathena.connection import Connection as AthenaConn
 from icd9.icd9 import Node as ICDNode
 from icd9.icd9 import ICD9
+import numpy as np
 
 # define a query for retrieving notes labeled with icd codes
 NOTE_ICD_QUERY: str = f"""
@@ -138,6 +139,7 @@ def main() -> None:
         df.to_csv(query_fp, header=True, index=False)
 
     # read in roots icd codes
+    print("Retrieving ICD roots .....")
     roots_fp = os.path.join(PROJ_DIR, "data", "roots_labels.csv")
     if os.path.exists(roots_fp):
         roots = pd.read_csv(roots_fp, header=None)
@@ -180,6 +182,7 @@ def main() -> None:
         pd.DataFrame(tfidfs).to_csv(tfidf_fp, header=False, index=False)
 
     # retrieve PCA values
+    print("Reducing tfidf with pca .....")
     pca = to_pca(np.array(tfidfs))
     pca_fp = os.path.join(PROJ_DIR, "data", "pca.csv")
     pd.DataFrame(pca).to_csv(pca_fp, header=False, index=False)
