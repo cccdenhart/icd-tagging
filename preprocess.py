@@ -2,29 +2,28 @@
 import functools as ft
 import os
 import re
+from typing import Callable
+from typing import List
+from typing import Optional
 
+import numpy as np
 import pandas as pd
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from pyathena.connection import Connection as AthenaConn
+from pyathena.util import as_pandas
 from sklearn.decomposition import PCA
+from sklearn.feature_extraction.text import TfidfVectorizer
+
 from constants import ICD_COLNAME
 from constants import LABEL_FN
 from constants import NOTE_COLNAME
 from constants import PROJ_DIR
 from constants import TFIDF_FN
 from constants import TREE
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
-from pyathena.util import as_pandas
-from sklearn.feature_extraction.text import TfidfVectorizer
-from typing import Callable
-from typing import List
-from typing import Optional
-from typing import Set
-from typing import Iterable
-from utils import get_conn
-from pyathena.connection import Connection as AthenaConn
-from icd9.icd9 import Node as ICDNode
 from icd9.icd9 import ICD9
-import numpy as np
+from icd9.icd9 import Node as ICDNode
+from utils import get_conn
 
 # define a query for retrieving notes labeled with icd codes
 NOTE_ICD_QUERY: str = f"""
@@ -55,7 +54,7 @@ def read_icd_notes(conn_func: Callable[[], AthenaConn],
     return df.dropna()
 
 
-def get_roots(codes: Iterable[str], tree: ICD9) -> List[ICDNode]:
+def get_roots(codes: List[str], tree: ICD9) -> List[ICDNode]:
     """Extract the root of each ICD code."""
     def code_to_node(code: str, n: int) -> ICDNode:
         print(f"{n}/{len(codes)}:", code)
@@ -67,25 +66,12 @@ def get_roots(codes: Iterable[str], tree: ICD9) -> List[ICDNode]:
 
     def icd_to_root(code: ICDNode) -> ICDNode:
         """Get the root of the given code."""
-        if not code:
-            return None
         if type(code.parent) == ICD9:
             return code
         else:
             return icd_to_root(code.parent)
     roots = [icd_to_root(code_to_node(c, i)) for i, c in enumerate(codes)]
     return roots
-
-
-def one_hot_labels(labels: List[List[str]]) -> List[List[int]]:
-    """Convert the list of ICD code labels to one-hot encodings."""
-    # get total distinct labels
-    dist_labels: Set[str] = set(ft.reduce(lambda acc, l: acc + l, labels))
-
-    # convert labels to one hot encodings
-    one_hot: List[List[str]] = [[1 if d in labs else 0 for d in dist_labels]
-                                for labs in labels]
-    return one_hot
 
 
 def process_all_notes(docs: List[str]) -> List[List[str]]:
@@ -117,6 +103,7 @@ def to_tfidf(docs: List[str]) -> np.ndarray:
     # convert tfidf from sparse matrix to list representation
     return tfidf_mat.todense()
 
+
 def to_pca(X: np.ndarray, ndims: int) -> np.ndarray:
     """Reduce the dimensionality of the 2d array to ndims."""
     if ndims <= min([len(cols) for cols in X]):
@@ -124,7 +111,6 @@ def to_pca(X: np.ndarray, ndims: int) -> np.ndarray:
         return pca.transform(X)
     else:
         raise AttributeError("Reduced dim size is greater than original dims.")
-    
 
 
 def main() -> None:
@@ -138,14 +124,17 @@ def main() -> None:
         df = read_icd_notes(get_conn, NOTE_ICD_QUERY)
         df.to_csv(query_fp, header=True, index=False)
 
+    # extract icd codes
+    icd_codes = ft.reduce(lambda acc, codes: acc + codes, df[ICD_COLNAME])
+
     # read in roots icd codes
     print("Retrieving ICD roots .....")
     roots_fp = os.path.join(PROJ_DIR, "data", "roots_labels.csv")
     if os.path.exists(roots_fp):
-        roots = pd.read_csv(roots_fp, header=None)
+        roots_df = pd.read_csv(roots_fp, header=None)
     else:
         dist_icd = list(set(icd_codes))
-        root_codes = [r.code for r in get_roots(dist_icd , TREE)]
+        root_codes = [r.code for r in get_roots(dist_icd, TREE)]
         root_pairs = {"icd": dist_icd, "root": root_codes}
         roots_df = pd.DataFrame(root_pairs)
         roots_df.to_csv(roots_fp, index=False)
@@ -166,10 +155,12 @@ def main() -> None:
         pp_notes = process_all_notes(df[NOTE_COLNAME].tolist())
 
         # replicate notes by the number of icd codes associated with it
-        rep_pp = ft.reduce(lambda acc, note, codes: acc + [note] * len(codes),
-                           [], pp_notes, df[ICD_COLNAME].tolist())
-                           
-        pd.DataFrame(pp_notes).to_csv(notes_fp, header=False, index=False)
+        rep_pp = ft.reduce(lambda acc, notes: acc + notes,
+                           [],
+                           map(lambda note, codes: [note] * len(codes),
+                               pp_notes,
+                               df[ICD_COLNAME].tolist()))
+        pd.DataFrame(rep_pp).to_csv(notes_fp, header=False, index=False)
 
     # retrieve tfidf vectors
     print("Embedding with tfidf .....")
@@ -183,11 +174,10 @@ def main() -> None:
 
     # retrieve PCA values
     print("Reducing tfidf with pca .....")
-    pca = to_pca(np.array(tfidfs))
+    pca = to_pca(np.array(tfidfs), 300)
     pca_fp = os.path.join(PROJ_DIR, "data", "pca.csv")
     pd.DataFrame(pca).to_csv(pca_fp, header=False, index=False)
 
-        
 
 if __name__ == "__main__":
     main()
