@@ -4,6 +4,7 @@ import os
 import re
 
 import pandas as pd
+from sklearn.decomposition import PCA
 from constants import ICD_COLNAME
 from constants import LABEL_FN
 from constants import NOTE_COLNAME
@@ -104,7 +105,7 @@ def process_all_notes(docs: List[str]) -> List[List[str]]:
     return all_toks
 
 
-def to_tfidf(docs: List[str]) -> List[List[int]]:
+def to_tfidf(docs: List[str]) -> np.ndarray:
     """Convert the notes to tfidf vectors."""
     # fit notes to sklearn tfidf vectorizer
     vectorizer = TfidfVectorizer().fit(docs)
@@ -113,8 +114,16 @@ def to_tfidf(docs: List[str]) -> List[List[int]]:
     tfidf_mat = vectorizer.transform(docs)
 
     # convert tfidf from sparse matrix to list representation
-    tfidf_list: List[List[int]] = tfidf_mat.todense().tolist()
-    return tfidf_list
+    return tfidf_mat.todense()
+
+def to_pca(X: np.ndarray, ndims: int) -> np.ndarray:
+    """Reduce the dimensionality of the 2d array to ndims."""
+    if ndims <= min([len(cols) for cols in X]):
+        pca = PCA(n_components=ndims).fit(X)
+        return pca.transform(X)
+    else:
+        raise AttributeError("Reduced dim size is greater than original dims.")
+    
 
 
 def main() -> None:
@@ -133,8 +142,17 @@ def main() -> None:
     if os.path.exists(roots_fp):
         roots = pd.read_csv(roots_fp, header=None)
     else:
-        roots = [get_roots(codes), TREE) for codes in df[ICD_COLNAME]]
-        pd.DataFrame(roots).to_csv(roots_fp, header=False, index=False)
+        dist_icd = list(set(icd_codes))
+        root_codes = [r.code for r in get_roots(dist_icd , TREE)]
+        root_pairs = {"icd": dist_icd, "root": root_codes}
+        roots_df = pd.DataFrame(root_pairs)
+        roots_df.to_csv(roots_fp, index=False)
+
+    # generate labels
+    roots_map = roots_df.dropna().to_dict('records')
+    labels = [roots_map[icd] for icd in icd_codes]
+    labels_fp = os.path.join(PROJ_DIR, "data", "labels.csv")
+    pd.Series(labels).to_csv(labels_fp, header=False, index=False)
 
     # preproces notes
     print("Preprocessing notes .....")
@@ -142,7 +160,13 @@ def main() -> None:
     if os.path.exists(notes_fp):
         pp_notes = pd.read_csv(notes_fp, header=None)
     else:
+        # preprocess notes
         pp_notes = process_all_notes(df[NOTE_COLNAME].tolist())
+
+        # replicate notes by the number of icd codes associated with it
+        rep_pp = ft.reduce(lambda acc, note, codes: acc + [note] * len(codes),
+                           [], pp_notes, df[ICD_COLNAME].tolist())
+                           
         pd.DataFrame(pp_notes).to_csv(notes_fp, header=False, index=False)
 
     # retrieve tfidf vectors
@@ -155,6 +179,12 @@ def main() -> None:
         tfidfs = to_tfidf(joined_pp)
         pd.DataFrame(tfidfs).to_csv(tfidf_fp, header=False, index=False)
 
+    # retrieve PCA values
+    pca = to_pca(np.array(tfidfs))
+    pca_fp = os.path.join(PROJ_DIR, "data", "pca.csv")
+    pd.DataFrame(pca).to_csv(pca_fp, header=False, index=False)
+
+        
 
 if __name__ == "__main__":
     main()

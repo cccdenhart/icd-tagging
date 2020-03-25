@@ -151,14 +151,16 @@ def main() -> Dict:
     if os.path.exists(roots_fp):
         roots_df = pd.read_csv(roots_fp)
     else:
-        root_codes = [r.code for r in get_roots(icd_codes, TREE)]
-        roots_df = pd.DataFrame(data={"leaf": icd_codes, "root": root_codes})
+        dist_icd = list(set(icd_codes))
+        root_codes = [r.code for r in get_roots(dist_icd , TREE)]
+        root_pairs = {"icd": dist_icd, "root": root_codes}
+        roots_df = pd.DataFrame(root_pairs)
         roots_df.to_csv(roots_fp, index=False)
 
     # get icd summary table
     print("Generating icd summary table .....")
-    roots_df = roots_df.dropna()
-    roots = roots_df["root"].apply(lambda x: x.split("\t")[-1]).tolist()
+    roots_map = roots_df.dropna().to_dict('records')
+    roots = [roots_map[icd] for icd in icd_codes]
     icd_table_fp = os.path.join(data_dir, "icd_summary.csv")
     icd_table = icd_summary(roots, TREE)
     icd_table.to_csv(icd_table_fp, header=True, index=False)
