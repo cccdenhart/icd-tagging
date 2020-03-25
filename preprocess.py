@@ -79,7 +79,7 @@ def process_all_notes(docs: List[str]) -> List[List[str]]:
     def process_note(doc: str) -> List[str]:
         """Process a single note."""
         # remove anonymized references (ex. "[** ... **]")
-        redoc: str = re.sub("\B\[\*\*[^\*\]]*\*\*\]\B", "", doc)
+        redoc: str = re.sub(r"\B\[\*\*[^\*\]]*\*\*\]\B", "", doc)
 
         # replace ICD codes?
         # tokenize and remove stop words

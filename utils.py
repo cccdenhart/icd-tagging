@@ -1,18 +1,20 @@
 import functools as ft
 import os
+from typing import List
+from typing import Set
 
+import networkx as nx
 import pandas as pd
 import pyathena
+from dotenv import load_dotenv
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from tqdm import tqdm
-from typing import List
-from typing import Set
-from constants import PROJ_DIR, ENV_NAME
-from dotenv import load_dotenv
+
+from constants import ENV_NAME
+from constants import PROJ_DIR
 from icd9.icd9 import ICD9
 from icd9.icd9 import Node as ICDNode
-import networkx as nx
 
 
 def get_conn():
