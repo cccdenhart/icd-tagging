@@ -7,6 +7,9 @@ data/
 ~*
 *data/
 
+# bash scripts
+*.sh
+
 # caches
 __pycache__/
 *\#
