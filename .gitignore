@@ -5,10 +5,11 @@
 # data
 data/
 ~*
-*data/
+*data*/
 
 # bash scripts
 *.sh
+slurm*
 
 # caches
 __pycache__/
