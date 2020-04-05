@@ -2,10 +2,11 @@
 .venv
 .env
 
-# data
+# results
 data/
 ~*
 *data*/
+images/
 
 # bash scripts
 *.sh
