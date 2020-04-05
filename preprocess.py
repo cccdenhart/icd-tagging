@@ -132,22 +132,17 @@ def main() -> None:
     # define a query for retrieving notes labeled with icd codes
     NOTE_ICD_QUERY: str = f"""
     SELECT
-    row_id, icd9_code, note
+      notetab.row_id as id,
+      ARRAY_AGG(icdtab.icd9_code) as {ICD_COLNAME},
+      ARRAY_AGG(notetab.text)[1] as {NOTE_COLNAME}
     FROM
-    (
-    SELECT
-    ARRAY_AGG(icdtab.icd9_code) as icd9_code,
-    notetab.row_id as row_id,
-    ARRAY_AGG(notetab.text)[1] as note
-    FROM
-    mimiciii.noteevents as notetab
+      mimiciii.noteevents as notetab
     INNER JOIN
-    mimiciii.diagnoses_icd as icdtab
+      mimiciii.diagnoses_icd as icdtab
     ON
-    notetab.hadm_id = icdtab.hadm_id
+      notetab.hadm_id = icdtab.hadm_id
     GROUP BY
-    notetab.row_id
-    );
+      notetab.row_id
     """
 
     # define main constants
