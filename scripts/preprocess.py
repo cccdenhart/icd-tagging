@@ -95,7 +95,7 @@ def retrieve_icd(conn_func: Callable[[], AthenaConn],
 def process_note(doc: str) -> List[str]:
     """Process a single note."""
     # remove anonymized references (ex. "[** ... **]") and lower case
-    redoc: str = re.sub(r"\B\[\*\*[^\*\]]*\*\*\]\B", "", doc).tolower()
+    redoc: str = re.sub(r"\B\[\*\*[^\*\]]*\*\*\]\B", "", doc).lower()
 
     # tokenize and remove stop words
     all_stops = set(stopwords.words("english"))
@@ -121,26 +121,3 @@ def retrieve_notes(conn_func: Callable[[], AthenaConn],
 
     df = note_df.drop("text", axis=1)
     return df
-
-
-def main() -> None:
-    """Cache preprocessed data files for modeling."""
-
-    # define main constants
-    subdir = "full_data"
-
-    if "--roots" in sys.argv:
-        # process icd codes
-        roots_fp = os.path.join(PROJ_DIR, subdir, "roots.csv")
-        icd_df = retrieve_icd(get_conn, TREE)
-        icd_df.to_csv(roots_fp, index=False)
-
-    if "--notes" in sys.argv:
-        # process notes
-        notes_fp = os.path.join(PROJ_DIR, subdir, "notes.csv")
-        notes_df = retrieve_notes(get_conn)
-        notes_df.to_csv(notes_fp, index=False)
-
-
-if __name__ == "__main__":
-    main()
