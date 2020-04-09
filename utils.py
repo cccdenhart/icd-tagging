@@ -1,16 +1,10 @@
-import functools as ft
 import os
 from typing import List
 from typing import Set
-import re
 
-import networkx as nx
 import pandas as pd
 import pyathena
 from dotenv import load_dotenv
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
-from tqdm import tqdm
 import torch
 from torch.utils.data import Dataset
 import numpy as np
@@ -50,29 +44,6 @@ def get_conn():
                             aws_secret_access_key=os.getenv("SECRET_KEY"),
                             s3_staging_dir=os.getenv("S3_DIR"),
                             region_name=os.getenv("REGION_NAME"))
-
-
-def process_all_notes(docs: List[str]) -> List[List[str]]:
-    """Preprocess notes for embedding."""
-    def process_note(doc: str) -> List[str]:
-        """Process a single note."""
-        # remove anonymized references (ex. "[** ... **]")
-        redoc: str = re.sub(r"\B\[\*\*[^\*\]]*\*\*\]\B", "", doc)
-
-        # tokenize and remove stop words
-        all_stops = set(stopwords.words("english"))
-        toks: List[str] = [w for w in word_tokenize(redoc)
-                           if w not in all_stops]
-        return toks
-
-    all_toks: List[List[str]] = [process_note(doc) for doc in docs]
-    return all_toks
-
-
-def group_v_roots(roots: List[str]) -> List[str]:
-    """Maps V ICD codes to a single category."""
-    return ["V01-V91" if r[0] == "V" else r
-            for r in roots]
 
 
 def probs_to_preds(probs, threshold):

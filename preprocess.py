@@ -2,6 +2,7 @@
 import functools as ft
 import os
 import sys
+import re
 from typing import Callable
 from typing import List
 from typing import Optional
@@ -11,6 +12,8 @@ from typing import Set
 import numpy as np
 import pandas as pd
 import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
 
 from pyathena.connection import Connection as AthenaConn
 from pyathena.util import as_pandas
@@ -21,19 +24,15 @@ from constants import PROJ_DIR
 from constants import TREE
 from icd9.icd9 import ICD9
 from icd9.icd9 import Node as ICDNode
-from utils import get_conn, process_all_notes
+from utils import get_conn
 nltk.download('stopwords')
 nltk.download('punkt')
 
 
-def read_icds(conn_func: Callable[[], AthenaConn],
-              limit: Optional[int] = None) -> pd.DataFrame:
+def read_athena(conn_func: Callable[[], AthenaConn],
+                query: str,
+                limit: Optional[int] = None) -> pd.DataFrame:
     """Read in clinical notes joined on icd codes."""
-    # define a query for retrieving notes labeled with icd codes
-    query = f"""
-    SELECT row_id, hadm_id, icd9_code as raw_code
-    FROM mimiciii.diagnoses_icd
-    """
     # define query string
     full_query: str = query + (f"\nORDER BY RAND()\nLIMIT {limit};"
                                if limit else ";")
@@ -74,8 +73,12 @@ def retrieve_icd(conn_func: Callable[[], AthenaConn],
                  tree: ICD9,
                  limit: Optional[int] = None) -> pd.DataFrame:
     """Retrieves all diagnoses ICD9 codes and paired hadm_id from mimic."""
+    query = f"""
+    SELECT row_id as icd_id, hadm_id, icd9_code as raw_code
+    FROM mimiciii.diagnoses_icd
+    """
     # read in the codes and ids
-    icd_df = read_icds(conn_func, limit)
+    icd_df = read_athena(conn_func, query, limit)
 
     # clean the codes
     icd_df["icd"] = icd_df["raw_code"].apply(lambda x: clean_code(x, tree))
@@ -87,7 +90,38 @@ def retrieve_icd(conn_func: Callable[[], AthenaConn],
     # convert codes to roots
     icd_df["roots"] = icd_df["icd"].apply(lambda x: root_map[x])
 
-    df = icd_df.loc[:, ["row_id", "hadm_id", "roots"]]
+    df = icd_df.drop(["icd", "raw_code"], axis=1)
+    return df
+
+
+def process_note(doc: str) -> List[str]:
+    """Process a single note."""
+    # remove anonymized references (ex. "[** ... **]")
+    redoc: str = re.sub(r"\B\[\*\*[^\*\]]*\*\*\]\B", "", doc)
+
+    # tokenize and remove stop words
+    all_stops = set(stopwords.words("english"))
+    toks: List[str] = [w for w in word_tokenize(redoc)
+                       if w not in all_stops]
+    return toks
+
+
+def retrieve_notes(conn_func: Callable[[], AthenaConn],
+                   limit: Optional[int] = None) -> pd.DataFrame:
+    """Retrieve clinical notes from MIMIC and process."""
+    # read in notes
+    query = """
+    SELECT
+      row_id as note_id, hadm_id, text
+    FROM
+      mimiciii.noteevents
+    """
+    note_df = read_athena(conn_func, query, limit)
+
+    # clean notes and tokenize
+    note_df["tokens"] = note_df["text"].apply(process_note)
+
+    df = note_df.drop("text", axis=1)
     return df
 
 
@@ -98,13 +132,16 @@ def main() -> None:
     subdir = "full_data"
 
     if "--roots" in sys.argv:
-        # process roots labels
+        # process icd codes
         roots_fp = os.path.join(PROJ_DIR, subdir, "roots.csv")
         icd_df = retrieve_icd(get_conn, TREE)
         icd_df.to_csv(roots_fp, index=False)
 
     if "--notes" in sys.argv:
-        pass
+        # process notes
+        notes_fp = os.path.join(PROJ_DIR, subdir, "notes.csv")
+        notes_df = retrieve_notes(get_conn)
+        notes_df.to_csv(notes_fp, index=False)
 
 
 if __name__ == "__main__":

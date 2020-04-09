@@ -8,7 +8,6 @@ import pandas as pd
 from constants import PROJ_DIR, TREE
 from icd9.icd9 import ICD9
 from icd9.icd9 import Node as ICDNode
-from preprocess import get_roots
 from pyathena.connection import Connection as AthenaConn
 from pyathena.util import as_pandas
 from typing import Callable
@@ -105,7 +104,8 @@ def summary_table(conn_func: Callable[[], AthenaConn]) -> pd.DataFrame:
 def count_children(node: ICDNode) -> int:
     """Count the total number of descendents from this node."""
     if node.children:
-        return ft.reduce(lambda acc, n: acc + count_children(n), node.children, 1)
+        return ft.reduce(lambda acc, n: acc + count_children(n),
+                         node.children, 1)
     else:
         return 1
 
