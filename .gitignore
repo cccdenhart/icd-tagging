@@ -7,6 +7,7 @@ data/
 ~*
 *data*/
 images/
+embeddings/
 
 # bash scripts
 *.sh
@@ -19,3 +20,4 @@ __pycache__/
 *~
 .ipynb_checkpoints
 .mypy_cache
+.DS_Store
