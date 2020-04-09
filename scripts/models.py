@@ -3,7 +3,7 @@ import numpy as np
 from typing import List
 import pandas as pd
 import os
-from constants import PROJ_DIR
+from utils import PROJ_DIR
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import (accuracy_score, precision_score, recall_score,
                              f1_score, roc_auc_score)

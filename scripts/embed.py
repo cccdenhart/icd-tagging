@@ -2,7 +2,7 @@
 from typing import List
 import numpy as np
 import pandas as pd
-from constants import PROJ_DIR
+from utils import PROJ_DIR
 import os
 import sys
 import gensim

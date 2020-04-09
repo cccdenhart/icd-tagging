@@ -5,7 +5,7 @@ from collections import Counter
 import os
 
 import pandas as pd
-from constants import PROJ_DIR, TREE
+from utils import PROJ_DIR, TREE
 from icd9.icd9 import ICD9
 from icd9.icd9 import Node as ICDNode
 from pyathena.connection import Connection as AthenaConn
@@ -15,7 +15,7 @@ from typing import Iterable
 from typing import List
 from typing import Dict
 from utils import get_conn
-from constants import ROOT_DESCS
+from utils import ROOT_DESCS
 
 
 def get_icd(conn_func: Callable[[], AthenaConn]) -> List[str]:

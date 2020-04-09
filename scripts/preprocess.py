@@ -18,10 +18,8 @@ from nltk.tokenize import word_tokenize
 from pyathena.connection import Connection as AthenaConn
 from pyathena.util import as_pandas
 
-from constants import ICD_COLNAME
-from constants import NOTE_COLNAME
-from constants import PROJ_DIR
-from constants import TREE
+from utils import PROJ_DIR
+from utils import TREE
 from icd9.icd9 import ICD9
 from icd9.icd9 import Node as ICDNode
 from utils import get_conn
@@ -96,8 +94,8 @@ def retrieve_icd(conn_func: Callable[[], AthenaConn],
 
 def process_note(doc: str) -> List[str]:
     """Process a single note."""
-    # remove anonymized references (ex. "[** ... **]")
-    redoc: str = re.sub(r"\B\[\*\*[^\*\]]*\*\*\]\B", "", doc)
+    # remove anonymized references (ex. "[** ... **]") and lower case
+    redoc: str = re.sub(r"\B\[\*\*[^\*\]]*\*\*\]\B", "", doc).tolower()
 
     # tokenize and remove stop words
     all_stops = set(stopwords.words("english"))

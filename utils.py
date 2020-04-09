@@ -10,12 +10,19 @@ from torch.utils.data import Dataset
 import numpy as np
 from typing import Tuple
 
-from constants import ENV_NAME
-from constants import PROJ_DIR
 from icd9.icd9 import ICD9
 from icd9.icd9 import Node as ICDNode
 
+""" --- Utility constants --- """
+# define project location
+PROJ_DIR: str = os.path.dirname(os.path.abspath(__file__))
 
+# load the icd9 tree
+TREE = ICD9(os.path.join(PROJ_DIR, "icd9", "codes.json"))
+ROOT_DESCS = {n.code: n.description for n in TREE.children}
+
+
+""" --- Utility objects --- """
 class ICDDataset(Dataset):
     """Implementation of PyTorch dataset."""
 
@@ -36,10 +43,12 @@ class ICDDataset(Dataset):
         return xi, yi
 
 
+""" --- Utility functions --- """
 def get_conn():
     """Allow lazy calling of pyathena connection."""
     # load the environment
-    load_dotenv(dotenv_path=os.path.join(PROJ_DIR, ENV_NAME))
+    env_name = ".env"
+    load_dotenv(dotenv_path=os.path.join(PROJ_DIR, env_name))
     return pyathena.connect(aws_access_key_id=os.getenv("ACCESS_KEY"),
                             aws_secret_access_key=os.getenv("SECRET_KEY"),
                             s3_staging_dir=os.getenv("S3_DIR"),
