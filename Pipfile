@@ -30,6 +30,10 @@ torch = "==1.4.0"
 tqdm = "==4.43.0"
 urllib3 = "==1.25.8"
 PyAthena = "==1.10.2"
+isort = "*"
+importmagic = "*"
+epc = "*"
+gensim = "*"
 
 [requires]
 python_version = "3.7"

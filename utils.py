@@ -59,3 +59,16 @@ def probs_to_preds(probs, threshold):
     """Classifies probabilities with the theshold."""
     return [[0 if p < threshold else 1 for p in row]
             for row in probs]
+
+
+def ml_accuracy(Y_true: List[List[int]], Y_pred: List[List[int]]) -> float:
+    """Calculate multi-label accuracy."""
+    ratios = []
+    for z, y in zip(Y_true, Y_pred):
+        iz = [i for i, val in enumerate(z) if val]
+        iy = [i for i, val in enumerate(y) if val]
+        sz, sy = set(iz), set(iy)
+        ratio = len(sz & sy) / len(sz | sy)
+        ratios.append(ratio)
+    acc = sum(ratios) / len(ratios)
+    return acc

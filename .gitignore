@@ -1,6 +1,7 @@
 # environments
 .venv
 .env
+Pipfile.lock
 
 # data 
 data/
