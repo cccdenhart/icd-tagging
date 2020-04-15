@@ -1,14 +1,15 @@
 import os
-from typing import List
-from typing import Set
+from dataclasses import dataclass
+from typing import List, Set, Tuple
 
+import numpy as np
 import pandas as pd
 import pyathena
-from dotenv import load_dotenv
 import torch
-from torch.utils.data import Dataset
-import numpy as np
-from typing import Tuple
+import torch.nn.functional as F
+from dotenv import load_dotenv
+from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
+from torch.utils.data import DataLoader, Dataset
 
 from icd9.icd9 import ICD9
 from icd9.icd9 import Node as ICDNode
@@ -23,24 +24,52 @@ ROOT_DESCS = {n.code: n.description for n in TREE.children}
 
 
 """ --- Utility objects --- """
+@dataclass
 class ICDDataset(Dataset):
     """Implementation of PyTorch dataset."""
-
-    def __init__(self, X: np.ndarray, y: np.ndarray) -> None:
-        """Initialize class variables."""
-        self.X = X
-        self.y = y
+    # initialize variables
+    X: List[List[int]]
+    Y: List[List[int]]
 
     def __len__(self) -> int:
         """Return the length of this dataset."""
-        return len(self.y)
+        return len(self.Y)
 
-    def __getitem__(self, idx: int) -> Tuple[torch.FloatTensor,
-                                             torch.FloatTensor]:
+    def __getitem__(self, idx: int) -> Tuple[List[int], torch.tensor]:
         """Get the features and label at the given index."""
-        xi: torch.FloatTensor = torch.FloatTensor(self.X[idx])
-        yi: torch.FloatTensor = torch.FloatTensor(self.y[idx])
-        return xi, yi
+        return self.X[idx], torch.FloatTensor(self.Y[idx])
+
+
+@dataclass
+class Batcher():
+    """Allow batching of data."""
+    # initialize variables
+    dataset: Dataset
+    batch_size: int = 64
+    cur_idx: int = 0
+
+    def __iter__(self) -> None:
+        self.cur_idx = 0
+        return self
+
+    def __next__(self) -> Tuple[List[List[int]],
+                                torch.tensor]:
+        """Return the next batch of data."""
+        # check if finished iterating
+        if self.cur_idx > len(self.dataset):
+            raise StopIteration
+
+        # retrieve batch
+        end_idx = self.cur_idx + self.batch_size
+        if end_idx < len(self.dataset):
+            X, Y = self.dataset[self.cur_idx:end_idx]
+        else:
+            X, Y = self.dataset[self.cur_idx:]
+
+        # increment current index
+        self.cur_idx += self.batch_size
+
+        return X, Y
 
 
 """ --- Utility functions --- """

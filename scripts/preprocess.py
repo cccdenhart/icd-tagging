@@ -14,6 +14,7 @@ import pandas as pd
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
+from gensim.models.keyedvectors import Word2VecKeyedVectors
 
 from pyathena.connection import Connection as AthenaConn
 from pyathena.util import as_pandas
@@ -42,8 +43,8 @@ def read_athena(conn_func: Callable[[], AthenaConn],
     return df.dropna()
 
 
-def clean_code(code: str, tree: ICD9) -> ICDNode:
-    """Convert the mimic code to a ICD Node."""
+def clean_code(code: str) -> str:
+    """Format the mimiciii code to standard form."""
     idx = 3
     norm_code = code[:idx] + "." + code[idx:] if len(code) > idx else code
     return norm_code
@@ -79,7 +80,7 @@ def retrieve_icd(conn_func: Callable[[], AthenaConn],
     icd_df = read_athena(conn_func, query, limit)
 
     # clean the codes
-    icd_df["icd"] = icd_df["raw_code"].apply(lambda x: clean_code(x, tree))
+    icd_df["icd"] = icd_df["raw_code"].apply(clean_code)
 
     # generate the root map
     dist_codes = set(icd_df["icd"].tolist())
@@ -121,3 +122,36 @@ def retrieve_notes(conn_func: Callable[[], AthenaConn],
 
     df = note_df.drop("text", axis=1)
     return df
+
+
+def group_data(roots_df: pd.DataFrame,
+               notes_df: pd.DataFrame) -> pd.DataFrame:
+    """Group the roots and notes data for modeling."""
+    # map each note_id to its tokens
+    note_map = dict(notes_df.loc[:, ["note_id", "tokens"]].values)
+
+    # join icd roots with notes
+    df = roots_df.merge(notes_df, on="hadm_id", how="inner").dropna()
+
+    # group by admission
+    df = df.groupby("hadm_id").aggregate(list).reset_index()
+
+    # get unique roots and notes per grouping
+    df["roots"] = df["roots"].apply(lambda x: list(set(x)))
+    df["note_id"] = df["note_id"].apply(lambda x: list(set(x)))
+
+    # replicate root lists for each note they are related to
+    roots = ft.reduce(lambda acc, r: acc + r,
+                      map(lambda r, nids: [r] * len(nids),
+                          df["roots"].tolist(),
+                          df["note_id"].tolist()),
+                      [])
+
+    # flatten notes grouped by hadm_id
+    notes = [note_map[nid] for nid in
+             ft.reduce(lambda acc, r: acc + r, df["note_id"].tolist(), [])]
+
+    # store the resulting replications in a modeling df
+    model_df = pd.DataFrame({"roots": roots, "tokens": notes})
+
+    return model_df

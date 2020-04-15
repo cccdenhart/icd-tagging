@@ -34,6 +34,8 @@ isort = "*"
 importmagic = "*"
 epc = "*"
 gensim = "*"
+pylint = "*"
+mypy = "*"
 
 [requires]
 python_version = "3.7"
