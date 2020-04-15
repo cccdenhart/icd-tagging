@@ -1,31 +1,22 @@
 """Convert raw mimic data to preprocessed features/labels."""
 import functools as ft
 import os
-import sys
 import re
-from typing import Callable
-from typing import List
-from typing import Optional
-from typing import Dict
-from typing import Set
+import sys
+from typing import Callable, Dict, List, Optional, Set
 
+import nltk
 import numpy as np
 import pandas as pd
-import nltk
+from gensim.models.keyedvectors import Word2VecKeyedVectors
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
-from gensim.models.keyedvectors import Word2VecKeyedVectors
-
 from pyathena.connection import Connection as AthenaConn
 from pyathena.util import as_pandas
 
-from utils import PROJ_DIR
-from utils import TREE
 from icd9.icd9 import ICD9
 from icd9.icd9 import Node as ICDNode
-from utils import get_conn
-nltk.download('stopwords')
-nltk.download('punkt')
+from utils import PROJ_DIR, TREE, get_conn
 
 
 def read_athena(conn_func: Callable[[], AthenaConn],

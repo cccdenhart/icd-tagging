@@ -17,9 +17,9 @@ def main() -> None:
     datadir = os.path.join(PROJ_DIR, "data")
     if not os.path.exists(datadir):
         os.makedirs(datadir)
-    roots_fp = os.path.join(datadir, "roots.csv")
-    notes_fp = os.path.join(datadir, "notes.csv")
-    model_fp = os.path.join(datadir, "model.pandas")
+    roots_fp = os.path.join(datadir, "roots.pd")
+    notes_fp = os.path.join(datadir, "notes.pd")
+    model_fp = os.path.join(datadir, "model.pd")
     w2v_fp = os.path.join(datadir, "embeddings",
                           "GoogleNews-vectors-negative300.bin")
 
@@ -35,12 +35,12 @@ def main() -> None:
 
     if "--prep" in sys.argv:
         # prepare the modeling df
-        roots_df = pd.read_csv(roots_fp)
-        notes_df = pd.read_csv(notes_fp)
+        roots_df = pd.read_pickle(roots_fp)
+        notes_df = pd.read_pickle(notes_fp)
         model_df = group_data(roots_df, notes_df)
         model_df.to_pickle(model_fp)
 
-    if "--baseline" or "lstm" in sys.argv:
+    if "--baseline" in sys.argv or "lstm" in sys.argv:
         # get model data
         model_df = pd.read_pickle(model_fp).sample(100)
 
