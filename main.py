@@ -5,8 +5,7 @@ import sys
 import pandas as pd
 
 from scripts.models import train_models
-from scripts.preprocess import (get_d2v, get_root_idx, get_word_idx,
-                                group_data, retrieve_icd, retrieve_notes)
+from scripts.preprocess import (group_data, retrieve_icd, retrieve_notes)
 from gensim.models import KeyedVectors
 from utils import PROJ_DIR, TREE, get_conn
 
@@ -18,8 +17,8 @@ def main() -> None:
     datadir = os.path.join(PROJ_DIR, "data")
     if not os.path.exists(datadir):
         os.makedirs(datadir)
-    roots_fp = os.path.join(datadir, "roots.pandas")
-    notes_fp = os.path.join(datadir, "notes.pandas")
+    roots_fp = os.path.join(datadir, "roots.csv")
+    notes_fp = os.path.join(datadir, "notes.csv")
     model_fp = os.path.join(datadir, "model.pandas")
     w2v_fp = os.path.join(datadir, "embeddings",
                           "GoogleNews-vectors-negative300.bin")
@@ -34,10 +33,10 @@ def main() -> None:
         notes_df = retrieve_notes(get_conn)
         notes_df.to_pickle(notes_fp)
 
-    if "--prep":
+    if "--prep" in sys.argv:
         # prepare the modeling df
-        roots_df = pd.read_pickle(roots_fp)
-        notes_df = pd.read_pickle(notes_fp)
+        roots_df = pd.read_csv(roots_fp)
+        notes_df = pd.read_csv(notes_fp)
         model_df = group_data(roots_df, notes_df)
         model_df.to_pickle(model_fp)
 

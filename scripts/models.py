@@ -57,7 +57,7 @@ class Lstm(nn.Module):
         code_scores = torch.sigmoid(code_space).squeeze()
         return code_scores
 
-    def fit(self, X: List[List[int]], Y: List[List[int]]) -> self:
+    def fit(self, X: List[List[int]], Y: List[List[int]]):
         """Train network on training set."""
         # initialize batcher
         dataset = ICDDataset(X, Y)
@@ -152,17 +152,17 @@ class Clf:
         """Split data for train/test."""
         return train_test_split(self.X, self.Y, test_size=0.3)
 
-    def set_fit(self) -> self:
+    def set_fit(self):
         """Store the fitted model."""
         self.model = self.model.fit(self.X_train, self.Y_train)
         return self
 
-    def set_preds(self) -> self:
+    def set_preds(self):
         """Store predictions."""
         self.preds = self.model.predict(self.X_test)
         return self
 
-    def set_probs(self) -> self:
+    def set_probs(self):
         """Store predicted probabilities."""
         self.probs = self.model.predict_proba(self.X_test)
         return self
