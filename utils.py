@@ -5,6 +5,8 @@ from typing import List, Set, Tuple
 import numpy as np
 import pandas as pd
 import pyathena
+from pyathena.connection import Connection as AthenaConn
+from pyathena.util import as_pandas
 import torch
 import torch.nn.functional as F
 from dotenv import load_dotenv
@@ -101,3 +103,11 @@ def ml_accuracy(Y_true: List[List[int]], Y_pred: List[List[int]]) -> float:
         ratios.append(ratio)
     acc = sum(ratios) / len(ratios)
     return acc
+
+
+def query_aws(conn_fn: AthenaConn, query: str) -> pd.DataFrame:
+    """Execute a query on the Athena database and return as pandas."""
+    with conn_fn() as conn:
+        cursor = conn.cursor()
+        df = as_pandas(cursor.execute(query))
+    return df

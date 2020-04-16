@@ -21,20 +21,18 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
 from utils import Batcher, ICDDataset
 
 
-@dataclass
 class Lstm(nn.Module):
     """An LSTM implementation with sklearn-like methods."""
 
-    # instance variables
-    weights: torch.tensor
-    n_code: int
-    embedding_dim: int = 300
-    lstm_size: int = 128
-    batch_size: int = 64
-    n_epochs: int = 30
-
-    def __post_init__(self):
+    def __init__(self, weights, n_code):
         super(Lstm, self).__init__()
+        # instance variables
+        self.weights: torch.tensor = weights
+        self.n_code: int = n_code
+        self.embedding_dim: int = 300
+        self.lstm_size: int = 128
+        self.batch_size: int = 64
+        self.n_epochs: int = 30
         self.embeddings = nn.Embedding.from_pretrained(self.weights)
         self.lstm = nn.LSTM(self.embedding_dim, self.lstm_size)
         self.hidden2code = nn.Linear(self.lstm_size, self.n_code)
@@ -119,6 +117,7 @@ class Clf:
         self.X_train, self.X_test, self.Y_train, self.Y_test = self.split_data()
         self.preds = []
         self.probs = []
+        self.lstm_kwargs = {}
 
     def __str__(self) -> str:
         """String representation of this clf."""
@@ -134,15 +133,15 @@ class Clf:
         class_names = mlb.classes_
 
         # build X
-        if isinstance(self.model(BaseEstimator)):
+        if isinstance(self.model, BaseEstimator):
             note_embs = [[self.embeddings[t] for t in note
                           if t in self.embeddings]
                          for note in self.tokens]
             X = [list(np.mean(note, axis=0)) for note in note_embs]
-        elif isinstance(self.model(Lstm)):
+        elif isinstance(self.model, Lstm):
             X = [[self.embeddings.vocab[tok].index for tok in note
-                       if tok in self.embeddings]
-                      for note in self.tokens]
+                  if tok in self.embeddings]
+                 for note in self.tokens]
         else:
             raise ValueError(f"Model not supported: {str(self.model)}.")
 
@@ -167,11 +166,33 @@ class Clf:
         self.probs = self.model.predict_proba(self.X_test)
         return self
 
+    def serialize_model(self, loc: str):
+        """Serialize pytorch model."""
+        fn = str(self) + ".pt"
+        fp = os.path.join(loc, fn)
+        self.lstm_kwargs = {"weights": self.model.weights,
+                            "n_code": self.model.n_code}
+        torch.save(self.model.state_dict(), fp)
+        self.model = None
+
+    def deserialize_model(self, fp: str):
+        """Deserialize pytorch model."""
+        self.model = Lstm(**self.lstm_kwargs)
+        self.model.load_state_dict(torch.load(fp))
+
     def save(self, loc: str) -> str:
         """Pickles this classifier."""
+        # construct filepath
         fn = str(self) + ".clf"
         fp = os.path.join(loc, fn)
-        pickle.dump(self, fp)
+
+        # deserialize model if lstm
+        if isinstance(self.model, Lstm):
+            self.serialize_model(loc)
+
+        # write to disk
+        with open(fp, "wb") as out_file:
+            pickle.dump(self, out_file)
         return fp
 
 
@@ -196,7 +217,7 @@ def train_models(roots: List[List[int]],
         }
     else:
         weights = torch.tensor(w2v.vectors)
-        n_codes = len(roots[0])
+        n_codes = 15
         models = {"Lstm": Lstm(weights, n_codes)}
 
     # convert to Clf form

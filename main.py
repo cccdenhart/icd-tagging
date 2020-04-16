@@ -13,10 +13,15 @@ from utils import PROJ_DIR, TREE, get_conn
 def main() -> None:
     """Cache results from time consuming processes."""
 
-    # define main constants
-    datadir = os.path.join(PROJ_DIR, "data")
+    # initialize directories
+    datadir = os.path.join(PROJ_DIR, "data", "preprocessed")
+    modeldir = os.path.join(PROJ_DIR, "data", "models")
     if not os.path.exists(datadir):
         os.makedirs(datadir)
+    if not os.path.exists(modeldir):
+        os.makedirs(modeldir)
+
+    # define filepaths
     roots_fp = os.path.join(datadir, "roots.pd")
     notes_fp = os.path.join(datadir, "notes.pd")
     model_fp = os.path.join(datadir, "model.pd")
@@ -40,21 +45,27 @@ def main() -> None:
         model_df = group_data(roots_df, notes_df)
         model_df.to_pickle(model_fp)
 
-    if "--baseline" in sys.argv or "lstm" in sys.argv:
+    if "--baseline" in sys.argv or "--lstm" in sys.argv:
         # get model data
+        print("Loading prepped data .....")
         model_df = pd.read_pickle(model_fp).sample(100)
 
         # load word2vec embeddings
+        print("Loading embeddings .....")
         word2vec = KeyedVectors.load_word2vec_format(w2v_fp, binary=True)
 
         # get models, train, and save
         is_bl = "--baseline" in sys.argv
+        print("Training model .....")
         clfs = train_models(model_df["roots"].tolist(),
                             model_df["tokens"].tolist(),
                             word2vec,
                             is_bl)
+
+        # save models
+        print("Saving models .....")
         for clf in clfs:
-            clf.save(datadir)
+            clf.save(modeldir)
 
 if __name__ == "__main__":
     main()
