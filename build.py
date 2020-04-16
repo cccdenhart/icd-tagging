@@ -6,6 +6,7 @@ import pandas as pd
 
 from scripts.models import train_models
 from scripts.preprocess import (group_data, retrieve_icd, retrieve_notes)
+from transformers import AutoTokenizer
 from gensim.models import KeyedVectors
 from utils import PROJ_DIR, TREE, get_conn
 
@@ -44,17 +45,21 @@ def main() -> None:
         print("Loading embeddings .....")
         word2vec = KeyedVectors.load_word2vec_format(w2v_fp, binary=True)
 
+        # load tokenizer
+        print("Loading tokenizer .....")
+        tokenizer = AutoTokenizer.from_pretrained("emilyalsentzer/Bio_ClinicalBERT")
+
         # group data
         print("Grouping data .....")
         roots_df = pd.read_pickle(roots_fp)
         notes_df = pd.read_pickle(notes_fp)
-        model_df = group_data(roots_df, notes_df, word2vec)
+        model_df = group_data(roots_df, notes_df, word2vec, tokenizer)
         model_df.to_pickle(model_fp)
 
     if "--baseline" in sys.argv or "--lstm" in sys.argv:
         # get model data
         print("Loading prepped data .....")
-        model_df = pd.read_pickle(model_fp).sample(100)
+        model_df = pd.read_pickle(model_fp).sample(50000)
 
         # load word2vec embeddings
         print("Loading embeddings .....")

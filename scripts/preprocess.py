@@ -1,5 +1,6 @@
 """Convert raw mimic data to preprocessed features/labels."""
 import functools as ft
+import itertools as it
 import os
 import re
 import sys
@@ -9,8 +10,10 @@ import nltk
 import numpy as np
 import pandas as pd
 from gensim.models.keyedvectors import Word2VecKeyedVectors
+from transformers import AutoTokenizer
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
+import torch
 from pyathena.connection import Connection as AthenaConn
 from pyathena.util import as_pandas
 
@@ -52,8 +55,7 @@ def codes_to_roots(codes: Set[str], tree: ICD9) -> Dict[str, str]:
                 root = parents[1].code
                 if root[0] == "V":
                     return "V01-V91"
-                else:
-                    return root
+                return root
         return None
     root_map = {c: icd_to_root(c) for c in codes}
     return root_map
@@ -84,16 +86,11 @@ def retrieve_icd(conn_func: Callable[[], AthenaConn],
     return df
 
 
-def process_note(doc: str) -> List[str]:
+def process_note(doc: str) -> str:
     """Process a single note."""
     # remove anonymized references (ex. "[** ... **]") and lower case
     redoc: str = re.sub(r"\B\[\*\*[^\*\]]*\*\*\]\B", "", doc).lower()
-
-    # tokenize and remove stop words
-    all_stops = set(stopwords.words("english"))
-    toks: List[str] = [w for w in word_tokenize(redoc)
-                       if w not in all_stops]
-    return toks
+    return redoc
 
 
 def retrieve_notes(conn_func: Callable[[], AthenaConn],
@@ -109,42 +106,55 @@ def retrieve_notes(conn_func: Callable[[], AthenaConn],
     note_df = read_athena(conn_func, query, limit)
 
     # clean notes and tokenize
-    note_df["tokens"] = note_df["text"].apply(process_note)
+    note_df["text"] = note_df["text"].apply(process_note)
 
-    df = note_df.drop("text", axis=1)
-    return df
+    return note_df
 
 
 def group_data(roots_df: pd.DataFrame,
                notes_df: pd.DataFrame,
-               w2v) -> pd.DataFrame:
+               w2v,
+               tokenizer) -> pd.DataFrame:
     """Group the roots and notes data for modeling."""
     # map each note_id to its tokens
-    note_map = dict(notes_df.loc[:, ["note_id", "tokens"]].values)
+    note_map = dict(notes_df.loc[:, ["note_id", "text"]].values)
+    hadm_map = dict(notes_df.loc[:, ["note_id", "hadm_id"]].values)
 
     # join icd roots with notes
+    print("Merging note and roots .....")
     df = roots_df.merge(notes_df, on="hadm_id", how="inner").dropna()
 
     # group by admission
+    print("Grouping by hadm id .....")
     df = df.groupby("hadm_id").aggregate(list).reset_index()
 
     # get unique roots and notes per grouping
+    print("Replicating notes .....")
     df["roots"] = df["roots"].apply(lambda x: list(set(x)))
     df["note_id"] = df["note_id"].apply(lambda x: list(set(x)))
 
     # replicate root lists for each note they are related to
-    roots = ft.reduce(lambda acc, r: acc + r,
-                      map(lambda r, nids: [r] * len(nids),
-                          df["roots"].tolist(),
-                          df["note_id"].tolist()),
-                      [])
+    roots = it.chain.from_iterable(map(lambda r, nids: [r] * len(nids),
+                                       df["roots"].tolist(),
+                                       df["note_id"].tolist()))
+
+    # flatten note ids
+    note_ids = it.chain.from_iterable(df["note_id"].tolist())
 
     # flatten notes grouped by hadm_id
-    notes = [note_map[nid] for nid in
-             ft.reduce(lambda acc, r: acc + r, df["note_id"].tolist(), [])]
+    notes = [note_map[nid] for nid in note_ids]
+
+    # reassign hadm_id for each note id
+    hadm_ids = [hadm_map[nid] for nid in note_ids]
 
     # store the resulting replications in a modeling df
-    model_df = pd.DataFrame({"roots": roots, "tokens": notes})
+    model_df = pd.DataFrame({"roots": roots, "text": notes, "hadm_id": hadm_ids})
+
+    # tokenize and remove stop words
+    print("Creating tokens .....")
+    all_stops = set(stopwords.words("english"))
+    model_df["tokens"] = model_df["text"]\
+        .apply(lambda t: [w for w in word_tokenize(t) if w not in all_stops])
 
     # remove rows with no tokens from word2vec
     model_df["tokens"] = model_df["tokens"]\
@@ -152,5 +162,23 @@ def group_data(roots_df: pd.DataFrame,
     model_df["tokens"] = model_df["tokens"]\
         .apply(lambda x: None if len(x) == 0 else x)
     model_df = model_df.dropna()
+
+    # average word embeddings to generate d2v embeddings
+    print("Creating d2v .....")
+    model_df["d2v"] = model_df["tokens"]\
+        .apply(lambda doc: list(np.mean([w2v[t] for t in doc if t in w2v],
+                                        axis=0)))
+
+    # get column for embedding indices
+    print("Creating w2v indices .....")
+    model_df["w2v_idx"] = model_df["tokens"]\
+        .apply(lambda doc: [w2v.vocab[w].index for w in doc if w in w2v])
+
+    # get bert embeddings indices
+    print("Creating bert indices .....")
+    model_df["bert_idx"] = model_df["text"]\
+        .apply(lambda doc: torch.tensor(tokenizer.encode(notes[0],
+                                                         add_special_tokens=True))\
+               .unsqueeze(0))
 
     return model_df

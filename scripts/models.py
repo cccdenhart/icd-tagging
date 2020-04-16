@@ -39,8 +39,8 @@ class Lstm(nn.Module):
 
     def forward(self, X: List[List[int]]) -> torch.tensor:
         # zero pad sequences such that all are length of longest seq
-        seq_lens = torch.tensor([len(seq) for seq in X])
-        X = [torch.tensor(samp) for samp in X]
+        seq_lens = torch.Tensor([len(seq) for seq in X])
+        X = [torch.Tensor(samp) for samp in X]
         pad_X = pad_sequence(X)
 
         # get embeddings

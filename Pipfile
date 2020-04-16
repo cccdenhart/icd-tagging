@@ -36,6 +36,7 @@ epc = "*"
 gensim = "*"
 pylint = "*"
 mypy = "*"
+transformers = "*"
 
 [requires]
 python_version = "3.7"
