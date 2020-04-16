@@ -14,17 +14,18 @@ def main() -> None:
     """Cache results from time consuming processes."""
 
     # initialize directories
-    datadir = os.path.join(PROJ_DIR, "data", "preprocessed")
-    modeldir = os.path.join(PROJ_DIR, "data", "models")
+    datadir = os.path.join(PROJ_DIR, "data")
+    procdir = os.path.join(datadir, "preprocessed")
+    modeldir = os.path.join(datadir, "models")
     if not os.path.exists(datadir):
         os.makedirs(datadir)
     if not os.path.exists(modeldir):
         os.makedirs(modeldir)
 
     # define filepaths
-    roots_fp = os.path.join(datadir, "roots.pd")
-    notes_fp = os.path.join(datadir, "notes.pd")
-    model_fp = os.path.join(datadir, "model.pd")
+    roots_fp = os.path.join(procdir, "roots.pd")
+    notes_fp = os.path.join(procdir, "notes.pd")
+    model_fp = os.path.join(procdir, "model.pd")
     w2v_fp = os.path.join(datadir, "embeddings",
                           "GoogleNews-vectors-negative300.bin")
 
