@@ -41,9 +41,14 @@ def main() -> None:
 
     if "--prep" in sys.argv:
         # prepare the modeling df
+        print("Loading embeddings .....")
+        word2vec = KeyedVectors.load_word2vec_format(w2v_fp, binary=True)
+
+        # group data
+        print("Grouping data .....")
         roots_df = pd.read_pickle(roots_fp)
         notes_df = pd.read_pickle(notes_fp)
-        model_df = group_data(roots_df, notes_df)
+        model_df = group_data(roots_df, notes_df, word2vec)
         model_df.to_pickle(model_fp)
 
     if "--baseline" in sys.argv or "--lstm" in sys.argv:
