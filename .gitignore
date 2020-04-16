@@ -13,7 +13,6 @@ embeddings/
 # bash scripts
 *.sh
 slurm*
-Makefile
 
 # caches
 __pycache__/
