@@ -51,8 +51,8 @@ def main() -> None:
 
         # group data
         print("Grouping data .....")
-        roots_df = pd.read_pickle(roots_fp)
-        notes_df = pd.read_pickle(notes_fp)
+        roots_df = pd.read_pickle(roots_fp).sample(10000)
+        notes_df = pd.read_pickle(notes_fp).sample(10000)
         model_df = group_data(roots_df, notes_df, word2vec, tokenizer)
         model_df.to_pickle(model_fp)
 

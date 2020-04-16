@@ -134,12 +134,12 @@ def group_data(roots_df: pd.DataFrame,
     df["note_id"] = df["note_id"].apply(lambda x: list(set(x)))
 
     # replicate root lists for each note they are related to
-    roots = it.chain.from_iterable(map(lambda r, nids: [r] * len(nids),
-                                       df["roots"].tolist(),
-                                       df["note_id"].tolist()))
+    roots = list(it.chain.from_iterable(map(lambda r, nids: [r] * len(nids),
+                                            df["roots"].tolist(),
+                                            df["note_id"].tolist())))
 
     # flatten note ids
-    note_ids = it.chain.from_iterable(df["note_id"].tolist())
+    note_ids = list(it.chain.from_iterable(df["note_id"].tolist()))
 
     # flatten notes grouped by hadm_id
     notes = [note_map[nid] for nid in note_ids]
@@ -177,8 +177,8 @@ def group_data(roots_df: pd.DataFrame,
     # get bert embeddings indices
     print("Creating bert indices .....")
     model_df["bert_idx"] = model_df["text"]\
-        .apply(lambda doc: torch.tensor(tokenizer.encode(notes[0],
-                                                         add_special_tokens=True))\
+        .apply(lambda doc: torch.tensor(tokenizer\
+                                        .encode(doc, add_special_tokens=True))\
                .unsqueeze(0))
 
     return model_df
