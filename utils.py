@@ -105,9 +105,9 @@ def ml_accuracy(Y_true: List[List[int]], Y_pred: List[List[int]]) -> float:
     return acc
 
 
-def query_aws(conn_fn: AthenaConn, query: str) -> pd.DataFrame:
+def query_aws(query: str) -> pd.DataFrame:
     """Execute a query on the Athena database and return as pandas."""
-    with conn_fn() as conn:
+    with get_conn() as conn:
         cursor = conn.cursor()
         df = as_pandas(cursor.execute(query))
     return df

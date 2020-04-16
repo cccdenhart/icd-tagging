@@ -116,7 +116,8 @@ def retrieve_notes(conn_func: Callable[[], AthenaConn],
 
 
 def group_data(roots_df: pd.DataFrame,
-               notes_df: pd.DataFrame) -> pd.DataFrame:
+               notes_df: pd.DataFrame,
+               w2v) -> pd.DataFrame:
     """Group the roots and notes data for modeling."""
     # map each note_id to its tokens
     note_map = dict(notes_df.loc[:, ["note_id", "tokens"]].values)
@@ -144,5 +145,12 @@ def group_data(roots_df: pd.DataFrame,
 
     # store the resulting replications in a modeling df
     model_df = pd.DataFrame({"roots": roots, "tokens": notes})
+
+    # remove rows with no tokens from word2vec
+    model_df["tokens"] = model_df["tokens"]\
+        .apply(lambda x: [t for t in x if t in w2v])
+    model_df["tokens"] = model_df["tokens"]\
+        .apply(lambda x: None if len(x) == 0 else x)
+    model_df = model_df.dropna()
 
     return model_df
