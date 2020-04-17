@@ -21,7 +21,7 @@ from pyathena.util import as_pandas
 
 from icd9.icd9 import ICD9
 from icd9.icd9 import Node as ICDNode
-from utils import PROJ_DIR, TREE, get_conn
+from utils import PROJ_DIR, TREE, get_conn, V_CODE
 
 
 def read_athena(conn_func: Callable[[], AthenaConn],
@@ -56,7 +56,7 @@ def codes_to_roots(codes: Set[str], tree: ICD9) -> Dict[str, str]:
             if parents and len(parents) > 2:
                 root = parents[1].code
                 if root[0] == "V":
-                    return "V01-V91"
+                    return V_CODE
                 return root
         return None
     root_map = {c: icd_to_root(c) for c in codes}

@@ -1,4 +1,7 @@
-ARGS=preprocess.py
+SUB=""
+LIMIT=""
+MODEL="baseline"
+EMBEDDINGS=""
 
 clean:
 	rm -rf slurm*
@@ -6,5 +9,11 @@ clean:
 	rm -rf *\#
 	rm -rf ~*
 
-run:
-	python $(ARGS)
+preprocess:
+	python -m build --roots --notes --prep $(SUB)
+
+split:
+	python -m build --split $(LIMIT)
+
+train:
+	python -m build --$(MODEL) --$(EMBEDDINGS)

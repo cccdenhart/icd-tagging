@@ -38,11 +38,13 @@ def main() -> None:
 
     if "--roots" in sys.argv:
         # process icd codes
+        print("Retrieving roots .....")
         roots_df = retrieve_icd(get_conn, TREE)
         roots_df.to_pickle(roots_fp)
 
     if "--notes" in sys.argv:
         # process notes
+        print("Retrieving clinical notes .....")
         notes_df = retrieve_notes(get_conn)
         notes_df.to_pickle(notes_fp)
 
@@ -58,21 +60,26 @@ def main() -> None:
         # group data
         print("Grouping data .....")
         roots_df = pd.read_pickle(roots_fp)
-        notes_df = pd.read_pickle(notes_fp).sample(50000)
+        notes_df = pd.read_pickle(notes_fp)
         model_df, class_names = group_data(roots_df, notes_df, word2vec, tokenizer)
         pd.Series(class_names).to_csv(class_fp, header=False, index=False)
         model_df.to_pickle(model_fp)
 
     if "--sub" in sys.argv:
         # subset the final dataframe for simpler modeling
+        print("Subsetting data .....")
         num_rows = 50000
         sub_df = pd.read_pickle(model_fp).sample(num_rows)
         sub_df.to_pickle(sub_fp)
 
     if "--split" in sys.argv:
         # split the final dataframe into train/test
-        sub_df = pd.read_pickle(sub_fp)
-        train_df, test_df = split_df(sub_df)
+        print("Splitting into train/test data .....")
+        if "--limit" in sys.argv:
+            final_df = pd.read_pickle(sub_fp)
+        else:
+            final_df = pd.read_pickle(model_fp)
+        train_df, test_df = split_df(final_df)
         train_df.to_pickle(train_fp)
         test_df.to_pickle(test_fp)
 
@@ -112,6 +119,8 @@ def main() -> None:
         print("Saving models .....")
         for clf in clfs:
             clf.save(modeldir)
+
+        print("Done.")
 
 
 if __name__ == "__main__":

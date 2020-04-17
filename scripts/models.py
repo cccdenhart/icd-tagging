@@ -15,9 +15,56 @@ from sklearn.multiclass import OneVsRestClassifier
 from sklearn.neural_network import MLPClassifier
 from transformers.modeling_bert import BertModel
 from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
-from joblib import dump 
+from joblib import dump
+from torch.utils.data import Dataset
 
-from utils import Batcher, ICDDataset
+
+@dataclass
+class ICDDataset(Dataset):
+    """Implementation of PyTorch dataset."""
+    # initialize variables
+    X: List[List[int]]
+    Y: List[List[int]]
+
+    def __len__(self) -> int:
+        """Return the length of this dataset."""
+        return len(self.Y)
+
+    def __getitem__(self, idx: int) -> Tuple[List[int], torch.tensor]:
+        """Get the features and label at the given index."""
+        return self.X[idx], torch.FloatTensor(self.Y[idx])
+
+
+@dataclass
+class Batcher():
+    """Allow batching of data."""
+    # initialize variables
+    dataset: Dataset
+    batch_size: int = 64
+    cur_idx: int = 0
+
+    def __iter__(self) -> None:
+        self.cur_idx = 0
+        return self
+
+    def __next__(self) -> Tuple[List[List[int]],
+                                torch.tensor]:
+        """Return the next batch of data."""
+        # check if finished iterating
+        if self.cur_idx > len(self.dataset):
+            raise StopIteration
+
+        # retrieve batch
+        end_idx = self.cur_idx + self.batch_size
+        if end_idx < len(self.dataset):
+            X, Y = self.dataset[self.cur_idx:end_idx]
+        else:
+            X, Y = self.dataset[self.cur_idx:]
+
+        # increment current index
+        self.cur_idx += self.batch_size
+
+        return X, Y
 
 
 class Lstm(nn.Module):
@@ -27,14 +74,17 @@ class Lstm(nn.Module):
         super(Lstm, self).__init__()
         # instance variables
         self.n_code: int = 16
-        self.embedding_dim: int = 768
         self.lstm_size: int = 128
         self.batch_size: int = 64
         self.n_epochs: int = 30
         if isinstance(weights, BertModel):
             self.embeddings = weights
+            self.embedding_dim: int = 768
+
         else:
             self.embeddings = nn.Embedding.from_pretrained(weights)
+            self.embedding_dim: int = 300
+
         self.lstm = nn.LSTM(self.embedding_dim, self.lstm_size)
         self.hidden2code = nn.Linear(self.lstm_size, self.n_code)
 
