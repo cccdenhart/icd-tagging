@@ -4,7 +4,8 @@ import itertools as it
 import os
 import re
 import sys
-from typing import Callable, Dict, List, Optional, Set
+from typing import Callable, Dict, List, Optional, Set, Tuple
+import math
 
 import nltk
 import numpy as np
@@ -182,3 +183,18 @@ def group_data(roots_df: pd.DataFrame,
                .unsqueeze(0))
 
     return model_df
+
+
+def split_df(df: pd.DataFrame,
+             test_size: float = 0.3) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Split the given dataframe in train/test sets."""
+    # get the test set
+    n_test = math.floor(df.shape[0] * test_size)
+    test_df = pd.sample(n_test)
+
+    # get the train set
+    train_idx = [i for i in df.index[:-1] if i not in test_df.index]
+    train_df = df.iloc[train_idx, :]
+
+    return train_df, test_df
+

@@ -2,21 +2,19 @@
 import os
 from dataclasses import dataclass
 from typing import Any, Iterable, List, Tuple, Union, Dict
-import pickle
 
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
 from gensim.models.keyedvectors import Word2VecKeyedVectors
-from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.base import BaseEstimator
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.neural_network import MLPClassifier
 from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
+from joblib import dump 
 
 from utils import Batcher, ICDDataset
 
@@ -107,97 +105,47 @@ class Clf:
     # instance variables
     model: Union[BaseEstimator, Lstm]
     name: str
-    tokens: List[List[str]]
-    roots: List[List[str]]
-    embeddings: Dict[str, np.ndarray]  # TODO: fix type
 
     def __post_init__(self) -> None:
         """Initialize variables to be set."""
-        self.X, self.Y, self.class_names = self.build_data()
-        self.X_train, self.X_test, self.Y_train, self.Y_test = self.split_data()
         self.preds = []
         self.probs = []
-        self.lstm_kwargs = {}
 
     def __str__(self) -> str:
         """String representation of this clf."""
         return self.name
 
-    def build_data(self) -> Tuple[List[List[Union[int, float]]],
-                                  List[List[int]],
-                                  List[str]]:
-        """Prep data for modeling."""
-        # build Y
-        mlb = MultiLabelBinarizer()
-        Y = mlb.fit_transform(self.roots)
-        class_names = mlb.classes_
-
-        # build X
-        if isinstance(self.model, BaseEstimator):
-            note_embs = [[self.embeddings[t] for t in note
-                          if t in self.embeddings]
-                         for note in self.tokens]
-            X = [list(np.mean(note, axis=0)) for note in note_embs]
-        elif isinstance(self.model, Lstm):
-            X = [[self.embeddings.vocab[tok].index for tok in note
-                  if tok in self.embeddings]
-                 for note in self.tokens]
-        else:
-            raise ValueError(f"Model not supported: {str(self.model)}.")
-
-        return X, Y, class_names
-
-    def split_data(self) -> Tuple:
-        """Split data for train/test."""
-        return train_test_split(self.X, self.Y, test_size=0.3)
-
-    def set_fit(self):
+    def set_fit(self, X, Y):
         """Store the fitted model."""
-        self.model = self.model.fit(self.X_train, self.Y_train)
+        self.model = self.model.fit(X, Y)
         return self
 
-    def set_preds(self):
+    def set_preds(self, X: List[List[Union[int, float]]]) -> List[List[int]]:
         """Store predictions."""
-        self.preds = self.model.predict(self.X_test)
-        return self
+        self.preds = self.model.predict(X)
+        return self.preds
 
-    def set_probs(self):
+    def set_probs(self, X: List[List[Union[int, float]]]) -> List[List[float]]:
         """Store predicted probabilities."""
-        self.probs = self.model.predict_proba(self.X_test)
+        self.probs = self.model.predict_proba(X)
         return self
-
-    def serialize_model(self, loc: str):
-        """Serialize pytorch model."""
-        fn = str(self) + ".pt"
-        fp = os.path.join(loc, fn)
-        self.lstm_kwargs = {"weights": self.model.weights,
-                            "n_code": self.model.n_code}
-        torch.save(self.model.state_dict(), fp)
-        self.model = None
-
-    def deserialize_model(self, fp: str):
-        """Deserialize pytorch model."""
-        self.model = Lstm(**self.lstm_kwargs)
-        self.model.load_state_dict(torch.load(fp))
 
     def save(self, loc: str) -> str:
         """Pickles this classifier."""
-        # construct filepath
-        fn = str(self) + ".clf"
-        fp = os.path.join(loc, fn)
-
         # deserialize model if lstm
         if isinstance(self.model, Lstm):
-            self.serialize_model(loc)
-
-        # write to disk
-        with open(fp, "wb") as out_file:
-            pickle.dump(self, out_file)
+            fn = str(self) + ".pt"
+            fp = os.path.join(loc, fn)
+            torch.save(self.model.state_dict(), fp)
+        else:
+            fn = str(self) + ".sk"
+            fp = os.path.join(loc, fn)
+            dump(self.model, fp)
         return fp
 
 
-def train_models(roots: List[List[int]],
-                 tokens: List[List[str]],
+def train_models(X: List[List[Union[int, float]]],
+                 Y: List[List[str]],
                  w2v: Word2VecKeyedVectors,
                  is_bl: bool) -> List[Clf]:
     """Train all baseline models and return them in Clf form."""
@@ -216,14 +164,14 @@ def train_models(roots: List[List[int]],
                                  max_iter=200)
         }
     else:
-        weights = torch.tensor(w2v.vectors)
+        weights = torch.Tensor(w2v.vectors)
         n_codes = 15
         models = {"Lstm": Lstm(weights, n_codes)}
 
     # convert to Clf form
-    clfs = [Clf(model, name, tokens, roots, w2v) for name, model in models.items()]
+    clfs = [Clf(model, name) for name, model in models.items()]
 
     # train clfs
-    trained_clfs = [clf.set_fit() for clf in clfs]
+    trained_clfs = [clf.set_fit(X, Y) for clf in clfs]
 
     return trained_clfs
