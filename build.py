@@ -53,7 +53,7 @@ def main() -> None:
         # group data
         print("Grouping data .....")
         roots_df = pd.read_pickle(roots_fp)
-        notes_df = pd.read_pickle(notes_fp)
+        notes_df = pd.read_pickle(notes_fp).sample(50000)
         model_df = group_data(roots_df, notes_df, word2vec, tokenizer)
         model_df.to_pickle(model_fp)
 
@@ -75,8 +75,8 @@ def main() -> None:
         # get models, train, and save
         is_bl = "--baseline" in sys.argv
         print("Training model .....")
-        clfs = train_models(model_df["roots"].tolist(),
-                            model_df["tokens"].tolist(),
+        clfs = train_models(sub_df["roots"].tolist(),
+                            sub_df["tokens"].tolist(),
                             word2vec,
                             is_bl)
 
