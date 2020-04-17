@@ -27,7 +27,7 @@ class Lstm(nn.Module):
         super(Lstm, self).__init__()
         # instance variables
         self.n_code: int = 16
-        self.embedding_dim: int = 300
+        self.embedding_dim: int = 768
         self.lstm_size: int = 128
         self.batch_size: int = 64
         self.n_epochs: int = 30
@@ -167,8 +167,7 @@ def train_baseline(X: List[List[float]],
 def train_lstm(X, Y, embeddings) -> List[Clf]:
     """Train an lstm model."""
     # instantiate model
-    weights = torch.Tensor(embeddings)
-    models = {"Lstm": Lstm(weights)}
+    models = {"Lstm": Lstm(embeddings)}
 
     # convert to Clf form
     clfs = [Clf(model, name) for name, model in models.items()]
