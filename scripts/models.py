@@ -115,9 +115,14 @@ class Clf:
         """String representation of this clf."""
         return self.name
 
-    def set_fit(self, X, Y):
+    def set_fit(self, data):
         """Store the fitted model."""
-        self.model = self.model.fit(X, Y)
+        print(f"Training {self.name} .....")
+        if isinstance(data, Batcher):
+            self.model = self.model.fit(data)
+        else:
+            X, Y = data
+            self.model = self.model.fit(X, Y)
         return self
 
     def set_preds(self, X: List[List[Union[int, float]]]) -> List[List[int]]:
