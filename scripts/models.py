@@ -76,7 +76,7 @@ class Lstm(nn.Module):
         self.n_code: int = 16
         self.lstm_size: int = 128
         self.batch_size: int = 64
-        self.n_epochs: int = 30
+        self.n_epochs: int = 10
         if isinstance(weights, BertModel):
             self.embeddings = weights
             self.embedding_dim: int = 768
@@ -91,7 +91,7 @@ class Lstm(nn.Module):
     def forward(self, X: List[List[int]]) -> torch.tensor:
         # zero pad sequences such that all are length of longest seq
         seq_lens = torch.Tensor([len(seq) for seq in X])
-        X = [torch.LongTensor(samp).squeeze() for samp in X]
+        X = [torch.LongTensor(samp) for samp in X]
         pad_X = pad_sequence(X)
 
         # get embeddings
@@ -139,6 +139,18 @@ class Lstm(nn.Module):
             print(f"loss = {loss}")
         print("done.")
         return self
+
+    def predict(self, X: List[List[int]], threshold: float = 0.5) -> np.ndarray:
+        """Give predictions for the given data."""
+        probs = self(X)
+        pos = torch.where(probs < threshold, probs, torch.ones(*probs.shape))
+        neg = torch.where(pos > threshold, pos, torch.zeros(*probs.shape))
+        preds = neg.long().numpy()
+        return preds
+
+    def predict_proba(self, X: List[List[int]]) -> np.ndarray:
+        """Get probabilities for the given data."""
+        return self(X).detach().numpy()
 
 
 @dataclass

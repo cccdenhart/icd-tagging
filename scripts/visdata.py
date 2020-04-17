@@ -72,7 +72,7 @@ def summary_table(query_func: Callable[[str], pd.DataFrame]) -> pd.DataFrame:
 def icd_summary(all_roots: List[str], tree: ICD9) -> pd.DataFrame:
     """Summarize top level icd codes."""
     # get non-V root nodes
-    roots = [r for r in tree.children if r.code[0] != "V"]
+    roots = [r for r in tree.children if r.code[0] not in ["V", "E"]]
     v_roots = [r for r in tree.children if r.code[0] == "V"]
 
     # count raw root in mimic
@@ -97,7 +97,7 @@ def icd_summary(all_roots: List[str], tree: ICD9) -> pd.DataFrame:
     leaves = [leaf_map[r] for r in root_codes]
     descs = [desc_map[r] for r in root_codes]
 
-    data = {"Code": roots, "Mimic-iii Counts": counts,
-            "Nodes in ICD Tree": leaves, "Description": descs}
+    data = {"Code": root_codes, "Mimic-iii Counts": counts,
+            "Number of Leaves": leaves, "Description": descs}
     df = pd.DataFrame(data)
     return df

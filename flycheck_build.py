@@ -86,7 +86,7 @@ def main() -> None:
     if "--baseline" in sys.argv or "--lstm" in sys.argv:
         # get model data
         print("Loading prepped data .....")
-        train_df = pd.read_pickle(train_fp)
+        train_df = pd.read_pickle(train_fp).sample(5000)
         Y = train_df["roots"].tolist()
         X_d2v = np.array([np.array(d) for d in train_df["d2v"].tolist()])
         X_w2v = train_df["w2v_idx"].tolist()
