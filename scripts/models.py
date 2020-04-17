@@ -22,11 +22,11 @@ from utils import Batcher, ICDDataset
 class Lstm(nn.Module):
     """An LSTM implementation with sklearn-like methods."""
 
-    def __init__(self, weights, n_code):
+    def __init__(self, weights):
         super(Lstm, self).__init__()
         # instance variables
         self.weights: torch.tensor = weights
-        self.n_code: int = n_code
+        self.n_code: int = 15
         self.embedding_dim: int = 300
         self.lstm_size: int = 128
         self.batch_size: int = 64
@@ -144,33 +144,22 @@ class Clf:
         return fp
 
 
-def train_models(X: List[List[Union[int, float]]],
-                 Y: List[List[str]],
-                 mod_type: str,
-                 embeddings = None) -> List[Clf]:
+def train_baseline(X: List[List[float]],
+                   Y: List[List[str]]) -> List[Clf]:
     """Train all baseline models and return them in Clf form."""
     # initialize models
-    if mod_type == "baseline":
-        models = {
-            "LogisticRegression": OneVsRestClassifier(
-                LogisticRegression(multi_class="ovr")),
-            "RandomForest": OneVsRestClassifier(
-                RandomForestClassifier(n_estimators=150,
-                                       criterion="entropy")),
-            "MLP": MLPClassifier(hidden_layer_sizes=(40, 30),
-                                 learning_rate_init=0.1,
-                                 activation='relu',
-                                 solver='adam',
-                                 max_iter=200)
-        }
-    elif mod_type == "lstm_w2v":
-        weights = torch.Tensor(embeddings.vectors)
-        n_codes = 15
-        models = {"Lstm": Lstm(weights, n_codes)}
-    elif mod_type == "lstm_bert":
-        raise ValueError("Bert not implemented yet.")
-    else:
-        raise ValueError("Invalid model type given.")
+    models = {
+        "LogisticRegression": OneVsRestClassifier(
+            LogisticRegression(multi_class="ovr")),
+        "RandomForest": OneVsRestClassifier(
+            RandomForestClassifier(n_estimators=150,
+                                   criterion="entropy")),
+        "MLP": MLPClassifier(hidden_layer_sizes=(40, 30),
+                             learning_rate_init=0.1,
+                             activation='relu',
+                             solver='adam',
+                             max_iter=200)
+    }
 
     # convert to Clf form
     clfs = [Clf(model, name) for name, model in models.items()]
@@ -179,3 +168,19 @@ def train_models(X: List[List[Union[int, float]]],
     trained_clfs = [clf.set_fit(X, Y) for clf in clfs]
 
     return trained_clfs
+
+
+def train_lstm(batcher: Batcher, embeddings) -> List[Clf]:
+    """Train an lstm model."""
+    # instantiate model
+    weights = torch.Tensor(embeddings)
+    models = {"Lstm": Lstm(weights)}
+
+    # convert to Clf form
+    clfs = [Clf(model, name) for name, model in models.items()]
+
+    # train clfs
+    trained_clfs = [clf.set_fit(batcher) for clf in clfs]
+
+    return trained_clfs
+

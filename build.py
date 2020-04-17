@@ -4,11 +4,11 @@ import sys
 
 import pandas as pd
 
-from scripts.models import train_models
+from scripts.models import train_baseline, train_lstm
 from scripts.preprocess import (group_data, retrieve_icd, retrieve_notes, split_df)
 from transformers import AutoTokenizer, AutoModel
 from gensim.models import KeyedVectors
-from utils import PROJ_DIR, TREE, get_conn
+from utils import PROJ_DIR, TREE, get_conn, ICDDataset, Batcher
 
 
 def main() -> None:
@@ -76,38 +76,34 @@ def main() -> None:
 
         if "--baseline" in sys.argv:
             print("Training model .....")
-            clfs = train_models(X_d2v, Y, "baseline")
+            clfs = train_baseline(X_d2v, Y)
         else:
             if "--w2v" in sys.argv:
                 # load word2vec embeddings
                 print("Loading embeddings .....")
                 embeddings = KeyedVectors.load_word2vec_format(w2v_fp, binary=True)
                 X = X_w2v
-                mod_type = "lstm_w2v"
             elif "--bert" in sys.argv:
+                # load bert embeddings
+                print("Loading embeddings .....")
                 embeddings = AutoModel.from_pretrained("emilyalsentzer/Bio_ClinicalBERT")
                 embeddings.eval()
                 X = X_bert
-                mod_type = "lstm_bert"
-                raise ValueError("Bert not implemented")
             else:
                 raise ValueError("No embeddings for lstm specified.")
 
+            # instantiate batcher
+            dataset = ICDDataset(X, Y)
+            batcher = Batcher(dataset)
+
             # train lstm
             print("Training model .....")
-            clfs = train_models(X, Y, mod_type, embeddings=embeddings)
+            clfs = train_lstm(batcher, embeddings=embeddings)
 
         # save models
         print("Saving models .....")
         for clf in clfs:
             clf.save(modeldir)
-
-        # load word2vec embeddings
-        print("Loading embeddings .....")
-        word2vec = KeyedVectors.load_word2vec_format(w2v_fp, binary=True)
-
-        # get models, train, and save
-        is_bl = "--baseline" in sys.argv
 
 
 if __name__ == "__main__":
