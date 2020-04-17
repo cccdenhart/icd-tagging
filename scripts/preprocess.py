@@ -198,8 +198,8 @@ def split_df(df: pd.DataFrame,
     test_df = df.sample(n_test)
 
     # get the train set
-    train_idx = [i for i in df.index[:-1] if i not in test_df.index]
-    train_df = df.iloc[train_idx, :]
+    train_idx = [i for i in df.index if i not in test_df.index]
+    train_df = df.loc[train_idx]
 
     return train_df, test_df
 
