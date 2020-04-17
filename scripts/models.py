@@ -26,7 +26,7 @@ class Lstm(nn.Module):
         super(Lstm, self).__init__()
         # instance variables
         self.weights: torch.tensor = weights
-        self.n_code: int = 15
+        self.n_code: int = 16
         self.embedding_dim: int = 300
         self.lstm_size: int = 128
         self.batch_size: int = 64

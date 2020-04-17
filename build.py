@@ -81,7 +81,8 @@ def main() -> None:
             if "--w2v" in sys.argv:
                 # load word2vec embeddings
                 print("Loading embeddings .....")
-                embeddings = KeyedVectors.load_word2vec_format(w2v_fp, binary=True).vectors
+                word2vec = KeyedVectors.load_word2vec_format(w2v_fp, binary=True)
+                embeddings = torch.Tensor(word2vec.vectors)
                 X = X_w2v
             elif "--bert" in sys.argv:
                 # load bert embeddings
