@@ -126,7 +126,6 @@ class Clf:
 
     def save(self, loc: str) -> str:
         """Pickles this classifier."""
-        # deserialize model if lstm
         if isinstance(self.model, Lstm):
             fn = str(self) + ".pt"
             fp = os.path.join(loc, fn)
@@ -166,8 +165,9 @@ def train_baseline(X: List[List[float]],
 
 def train_lstm(X, Y, embeddings) -> List[Clf]:
     """Train an lstm model."""
+    name = "Lstm_bert" if isinstance(embeddings, BertModel) else "Lstm-w2v"
     # instantiate model
-    models = {"Lstm": Lstm(embeddings)}
+    models = {name: Lstm(embeddings)}
 
     # convert to Clf form
     clfs = [Clf(model, name) for name, model in models.items()]
