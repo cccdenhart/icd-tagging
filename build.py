@@ -3,6 +3,8 @@ import os
 import sys
 
 import pandas as pd
+import numpy as np
+import torch
 
 from scripts.models import train_baseline, train_lstm
 from scripts.preprocess import (group_data, retrieve_icd, retrieve_notes, split_df)
@@ -28,6 +30,8 @@ def main() -> None:
     notes_fp = os.path.join(procdir, "notes.pd")
     model_fp = os.path.join(procdir, "model.pd")
     class_fp = os.path.join(procdir, "class_names.csv")
+    train_fp = os.path.join(procdir, "train.pd")
+    test_fp = os.path.join(procdir, "test.pd")
     sub_fp = os.path.join(procdir, "sub.pd")
     w2v_fp = os.path.join(datadir, "embeddings",
                           "GoogleNews-vectors-negative300.bin")
@@ -65,14 +69,21 @@ def main() -> None:
         sub_df = pd.read_pickle(model_fp).sample(num_rows)
         sub_df.to_pickle(sub_fp)
 
+    if "--split" in sys.argv:
+        # split the final dataframe into train/test
+        sub_df = pd.read_pickle(sub_fp)
+        train_df, test_df = split_df(sub_df)
+        train_df.to_pickle(train_fp)
+        test_df.to_pickle(test_fp)
+
     if "--baseline" in sys.argv or "--lstm" in sys.argv:
         # get model data
         print("Loading prepped data .....")
-        sub_df = pd.read_pickle(sub_fp)
-        Y = sub_df["roots"].tolist()
-        X_d2v = sub_df["d2v"]
-        X_w2v = sub_df["w2v_idx"].tolist()
-        X_bert = sub_df["bert_idx"].tolist()
+        train_df = pd.read_pickle(train_fp)
+        Y = train_df["roots"].tolist()
+        X_d2v = np.array([np.array(d) for d in train_df["d2v"].tolist()])
+        X_w2v = train_df["w2v_idx"].tolist()
+        X_bert = train_df["bert_idx"].tolist()
 
         if "--baseline" in sys.argv:
             print("Training model .....")
