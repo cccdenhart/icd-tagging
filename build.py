@@ -6,7 +6,7 @@ import pandas as pd
 
 from scripts.models import train_models
 from scripts.preprocess import (group_data, retrieve_icd, retrieve_notes, split_df)
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, AutoModel
 from gensim.models import KeyedVectors
 from utils import PROJ_DIR, TREE, get_conn
 
@@ -85,6 +85,8 @@ def main() -> None:
                 X = X_w2v
                 mod_type = "lstm_w2v"
             elif "--bert" in sys.argv:
+                embeddings = AutoModel.from_pretrained("emilyalsentzer/Bio_ClinicalBERT")
+                embeddings.eval()
                 X = X_bert
                 mod_type = "lstm_bert"
                 raise ValueError("Bert not implemented")
@@ -93,7 +95,7 @@ def main() -> None:
 
             # train lstm
             print("Training model .....")
-            clfs = train_models(X, Y, mod_type)
+            clfs = train_models(X, Y, mod_type, embeddings=embeddings)
 
         # save models
         print("Saving models .....")
