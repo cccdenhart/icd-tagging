@@ -13,6 +13,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.neural_network import MLPClassifier
+from transformers.modeling_bert import BertModel
 from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
 from joblib import dump 
 
@@ -25,24 +26,28 @@ class Lstm(nn.Module):
     def __init__(self, weights):
         super(Lstm, self).__init__()
         # instance variables
-        self.weights: torch.tensor = weights
         self.n_code: int = 16
         self.embedding_dim: int = 300
         self.lstm_size: int = 128
         self.batch_size: int = 64
         self.n_epochs: int = 30
-        self.embeddings = nn.Embedding.from_pretrained(self.weights)
+        if isinstance(weights, BertModel):
+            self.embeddings = weights
+        else:
+            self.embeddings = nn.Embedding.from_pretrained(weights)
         self.lstm = nn.LSTM(self.embedding_dim, self.lstm_size)
         self.hidden2code = nn.Linear(self.lstm_size, self.n_code)
 
     def forward(self, X: List[List[int]]) -> torch.tensor:
         # zero pad sequences such that all are length of longest seq
         seq_lens = torch.Tensor([len(seq) for seq in X])
-        X = [torch.LongTensor(samp) for samp in X]
+        X = [torch.LongTensor(samp).squeeze() for samp in X]
         pad_X = pad_sequence(X)
 
         # get embeddings
         embeds = self.embeddings(pad_X)
+        if isinstance(self.embeddings, BertModel):
+            embeds = embeds[0]
 
         # pack padded sequences
         pack_X = pack_padded_sequence(embeds, seq_lens, enforce_sorted=False)
@@ -84,18 +89,6 @@ class Lstm(nn.Module):
             print(f"loss = {loss}")
         print("done.")
         return self
-
-    def predict(self, X: List[List[int]], threshold: float = 0.5) -> np.ndarray:
-        """Give predictions for the given data."""
-        probs = self(X)
-        pos = torch.where(probs < threshold, probs, torch.ones(*probs.shape))
-        neg = torch.where(pos > threshold, pos, torch.zeros(*probs.shape))
-        preds = neg.long().numpy()
-        return preds
-
-    def predict_proba(self, X: List[List[int]]) -> np.ndarray:
-        """Get probabilities for the given data."""
-        return self(X).detach().numpy()
 
 
 @dataclass
