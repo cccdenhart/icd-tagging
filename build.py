@@ -92,13 +92,9 @@ def main() -> None:
             else:
                 raise ValueError("No embeddings for lstm specified.")
 
-            # instantiate batcher
-            dataset = ICDDataset(X, Y)
-            batcher = Batcher(dataset)
-
             # train lstm
             print("Training model .....")
-            clfs = train_lstm(batcher, embeddings=embeddings)
+            clfs = train_lstm(X, Y, embeddings)
 
         # save models
         print("Saving models .....")

@@ -115,14 +115,10 @@ class Clf:
         """String representation of this clf."""
         return self.name
 
-    def set_fit(self, data):
+    def set_fit(self, X, Y):
         """Store the fitted model."""
         print(f"Training {self.name} .....")
-        if isinstance(data, Batcher):
-            self.model = self.model.fit(data)
-        else:
-            X, Y = data
-            self.model = self.model.fit(X, Y)
+        self.model = self.model.fit(X, Y)
         return self
 
     def set_preds(self, X: List[List[Union[int, float]]]) -> List[List[int]]:
@@ -175,7 +171,7 @@ def train_baseline(X: List[List[float]],
     return trained_clfs
 
 
-def train_lstm(batcher: Batcher, embeddings) -> List[Clf]:
+def train_lstm(X, Y, embeddings) -> List[Clf]:
     """Train an lstm model."""
     # instantiate model
     weights = torch.Tensor(embeddings)
@@ -185,7 +181,7 @@ def train_lstm(batcher: Batcher, embeddings) -> List[Clf]:
     clfs = [Clf(model, name) for name, model in models.items()]
 
     # train clfs
-    trained_clfs = [clf.set_fit(batcher) for clf in clfs]
+    trained_clfs = [clf.set_fit(X, Y) for clf in clfs]
 
     return trained_clfs
 
