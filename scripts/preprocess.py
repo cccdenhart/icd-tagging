@@ -15,6 +15,7 @@ from transformers import AutoTokenizer
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 import torch
+from sklearn.preprocessing import MultiLabelBinarizer
 from pyathena.connection import Connection as AthenaConn
 from pyathena.util import as_pandas
 
@@ -182,7 +183,11 @@ def group_data(roots_df: pd.DataFrame,
                                         .encode(doc, add_special_tokens=True))\
                .unsqueeze(0))
 
-    return model_df
+    # one hot encode labels
+    mlb = MultiLabelBinarizer()
+    model_df["roots"] = mlb.fit_transform(model_df["roots"])
+
+    return model_df, mlb.classes_
 
 
 def split_df(df: pd.DataFrame,

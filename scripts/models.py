@@ -146,11 +146,11 @@ class Clf:
 
 def train_models(X: List[List[Union[int, float]]],
                  Y: List[List[str]],
-                 w2v: Word2VecKeyedVectors,
-                 is_bl: bool) -> List[Clf]:
+                 mod_type: str,
+                 embeddings = None) -> List[Clf]:
     """Train all baseline models and return them in Clf form."""
     # initialize models
-    if is_bl:
+    if mod_type == "baseline":
         models = {
             "LogisticRegression": OneVsRestClassifier(
                 LogisticRegression(multi_class="ovr")),
@@ -163,10 +163,14 @@ def train_models(X: List[List[Union[int, float]]],
                                  solver='adam',
                                  max_iter=200)
         }
-    else:
-        weights = torch.Tensor(w2v.vectors)
+    elif mod_type == "lstm_w2v":
+        weights = torch.Tensor(embeddings.vectors)
         n_codes = 15
         models = {"Lstm": Lstm(weights, n_codes)}
+    elif mod_type == "lstm_bert":
+        pass
+    else:
+        raise ValueError("Invalid model type given.")
 
     # convert to Clf form
     clfs = [Clf(model, name) for name, model in models.items()]
