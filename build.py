@@ -22,6 +22,8 @@ def main() -> None:
     modeldir = os.path.join(datadir, "models")
     if not os.path.exists(datadir):
         os.makedirs(datadir)
+    if not os.path.exists(procdir):
+        os.makedirs(procdir)
     if not os.path.exists(modeldir):
         os.makedirs(modeldir)
 
