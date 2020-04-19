@@ -7,7 +7,6 @@ Pipfile.lock
 data/
 ~*
 *data*/
-images/
 embeddings/
 
 # bash scripts
